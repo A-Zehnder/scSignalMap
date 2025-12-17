@@ -739,7 +739,13 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
       write.csv(upreg_receptors_filtered_and_compared, file.path(directory ,paste0(sender_clean, "_",receiver_clean,"_upreg_receptors_filtered_and_compared2.csv")))
       write.csv(enrichr_results, file.path(directory ,paste0(sender_clean, "_", receiver_clean,"_enrichr_results2.csv")))
       if (!dir.exists(directory2)) dir.create(directory2, recursive = TRUE)
-        write.csv(enrichr_filtered, file.path(directory2, paste0(sender_clean, "_", receiver_clean, "_enrichr_results_DATABASE2.csv")))
+        # Save filtered enrichr only if there are pathways
+        if (!is.null(enrichr_filtered) && nrow(enrichr_filtered) > 0) {
+          write.csv(enrichr_filtered, file.path(directory2, paste0(sender_clean, "_", receiver_clean, "_enrichr_results_DATABASE2.csv")), row.names = FALSE)
+          message("Saved ", nrow(enrichr_filtered), " signaling-relevant pathways for ", sender_clean, " to ", receiver_clean)
+        } else {
+          message("No signaling-relevant enriched pathways for ", sender_clean, " to ", receiver_clean, " (empty file skipped)")
+        }
 
         
       ###################################
