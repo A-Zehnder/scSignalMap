@@ -401,7 +401,8 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
   LR_interactions = MapInteractions(seurat_obj, 
                                     group_by = celltype_column,
                                     species=species)
-
+for (sender in sender_celltypes){
+  for(celltype in celltype_name){
   message("Finding DE genes...")
   de_cond_celltype = find_markers_btwn_cond_for_celltype(
       seurat_obj = seurat_obj,
@@ -452,8 +453,23 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
       interactions_filtered = interactions_filtered,
       upreg_receptors_filtered_and_compared = upreg_receptors_filtered_and_compared,
       enrichr_results = enrichr_results))
-}
+  
+  celltype = gsub("[.////]", "", celltype)
+  sender = gsub("[.////]", "", sender)
+  directory = paste0("enrichr_results/", sender, "_", celltype, "/")
+  if (!dir.exists(directory)) {
+    (dir.create(directory))
+  }
+  write.csv(result$LR_interactions, file.path(directory ,paste0(sender, '_',celltype,'_LR_interactions2.csv')))
+  write.csv(result$de_cond_celltype, file.path(directory ,paste0(sender, '_',celltype,'_de_cond_celltype2.csv')))
+  write.csv(result$upreg_receptors, file.path(directory ,paste0(sender, '_',celltype,'_upreg_receptors2.csv')))
+  write.csv(result$interactions_filtered, file.path(directory ,paste0(sender, '_',celltype,'_interactions_filtered2.csv')))
+  write.csv(result$upreg_receptors_filtered_and_compared, file.path(directory ,paste0(sender, '_',celltype,'_upreg_receptors_filtered_and_compared2.csv')))
+  write.csv(result$enrichr_results, file.path(directory ,paste0(sender, '_', celltype,'_enrichr_results2.csv')))
 
+}
+}
+}
 ##' Create Master Interaction List
 #'
 #' This function creates master interaction list by combining DE ligands/receptors, Enrichr results, and scSignalMap interactions
@@ -526,4 +542,6 @@ create_master_interaction_list = function(
   }
   
   return(master_list)
+}
+}
 }
