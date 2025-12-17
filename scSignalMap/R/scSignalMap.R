@@ -453,12 +453,12 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
           adj_p_val_cutoff = adj_p_val_cutoff,
           ensdb = ensdb)
     # Save per-comparison results
-      write.csv(result$LR_interactions, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_LR_interactions2.csv')))
-      write.csv(result$de_cond_celltype, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_de_cond_celltype2.csv')))
-      write.csv(result$upreg_receptors, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_upreg_receptors2.csv')))
-      write.csv(result$interactions_filtered, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_interactions_filtered2.csv')))
-      write.csv(result$upreg_receptors_filtered_and_compared, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_upreg_receptors_filtered_and_compared2.csv')))
-      write.csv(result$enrichr_results, file.path(directory ,paste0(sender_clean, '_', receiver_clean,'_enrichr_results2.csv')))
+      write.csv(LR_interactions, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_LR_interactions2.csv')))
+      write.csv(de_cond_celltype, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_de_cond_celltype2.csv')))
+      write.csv(upreg_receptors, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_upreg_receptors2.csv')))
+      write.csv(interactions_filtered, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_interactions_filtered2.csv')))
+      write.csv(upreg_receptors_filtered_and_compared, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_upreg_receptors_filtered_and_compared2.csv')))
+      write.csv(enrichr_results, file.path(directory ,paste0(sender_clean, '_', receiver_clean,'_enrichr_results2.csv')))
       
       ###################################
       ### Return all results together ###
