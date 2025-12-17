@@ -403,8 +403,8 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
                                     species=species)
   # Container for all pairwise results
   all_results = list()
-  for (sender in sender_celltypes){
-    for(receiver in receiver_celltypes){
+  for (sender in sender_celltypes) {
+    for(receiver in receiver_celltypes) {
 
         receiver_clean = gsub("[.////]", "", receiver)
         sender_clean = gsub("[.////]", "", sender)
@@ -432,8 +432,8 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
       message("Filtering LR interactions...")
       interactions_filtered = filter_lr_interactions(
           interactions = LR_interactions,
-          sender_celltypes = sender_celltypes,
-          receiver_celltypes = receiver_celltypes,
+          sender_celltypes = sender,
+          receiver_celltypes = receiver,
           secreted_lig = secreted_lig)
     
       message("Intersecting receptors with interactions...")
@@ -446,6 +446,8 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
       enrichr_results = find_enriched_pathways(
           seurat_obj = seurat_obj,
           de_condition_filtered = de_cond_celltype,
+          sender_celltypes = sender,
+          receiver_celltypes = receiver,
           enrichr_databases = enrichr_databases,
           adj_p_val_method = adj_p_val_method,
           adj_p_val_cutoff = adj_p_val_cutoff,
@@ -462,7 +464,7 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
       ### Return all results together ###
       ###################################
       pair_name = paste0(sender_clean, '_', receiver_clean)
-      all_results[[pair_name]] = (list(
+      all_results[[pair_name]] = list(
           LR_interactions = LR_interactions,
           de_cond_celltype = de_cond_celltype,
           upreg_receptors = upreg_receptors,
