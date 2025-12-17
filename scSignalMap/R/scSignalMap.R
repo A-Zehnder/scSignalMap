@@ -469,11 +469,23 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
                                     species=species)
   # Container for all pairwise results
   all_results = list()
+
+  # progress bar for loops  
+  total_pairs <- length(sender_celltypes) * length(receiver_celltypes)
+  pb <- progress_bar$new(
+    format = "[:bar] :current/:total (:percent) | :sender → :receiver | ETA: :eta",
+    total = total_pairs,
+    width = 80
+  )
+  pb$tick(0)  # initialize
   for (sender in sender_celltypes) {
     for(receiver in receiver_celltypes) {
 
         receiver_clean = gsub("[.////]", "", receiver)
         sender_clean = gsub("[.////]", "", sender)
+
+        pb$tick(tokens = list(sender = sender_clean, receiver = receiver_clean))
+        
         directory = paste0("enrichr_results/", sender_clean, "_", receiver_clean, "/")
         if (!dir.exists(directory)) dir.create(directory, recursive = TRUE)
       
