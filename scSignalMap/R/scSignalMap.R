@@ -487,6 +487,7 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
         pb$tick(tokens = list(sender = sender_clean, receiver = receiver_clean))
         
         directory = paste0("enrichr_results/", sender_clean, "_", receiver_clean, "/")
+        directory2 = "Neo4J/"
         if (!dir.exists(directory)) dir.create(directory, recursive = TRUE)
       
         message("Finding DE genes...")
@@ -543,7 +544,8 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
       write.csv(interactions_filtered, file.path(directory ,paste0(sender_clean, "_",receiver_clean,"_interactions_filtered2.csv")))
       write.csv(upreg_receptors_filtered_and_compared, file.path(directory ,paste0(sender_clean, "_",receiver_clean,"_upreg_receptors_filtered_and_compared2.csv")))
       write.csv(enrichr_results, file.path(directory ,paste0(sender_clean, "_", receiver_clean,"_enrichr_results2.csv")))
-      write.csv(enrichr_filtered, file.path(directory, paste0(sender_clean, "_", receiver_clean, "_enrichr_results_DATABASE2.csv")))
+      if (!dir.exists(directory2)) dir.create(directory2, recursive = TRUE)
+        write.csv(enrichr_filtered, file.path(directory2, paste0(sender_clean, "_", receiver_clean, "_enrichr_results_DATABASE2.csv")))
 
         
       ###################################
