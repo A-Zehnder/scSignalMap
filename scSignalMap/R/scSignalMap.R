@@ -770,7 +770,6 @@ export_for_neo4j(
 
 generate_neo4j_load_script(
   neo4j_dir = "Neo4J/",
-  enrichr_dir = "enrichr_results/",
   output_file = "Neo4J/load_my_analysis.cypher"
 )
 
