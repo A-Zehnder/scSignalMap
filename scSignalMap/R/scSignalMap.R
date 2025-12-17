@@ -470,9 +470,9 @@ for (sender in sender_celltypes){
     
 
     
-            }
-        }
-    }
+}
+}
+}
 ##' Create Master Interaction List
 #'
 #' This function creates master interaction list by combining DE ligands/receptors, Enrichr results, and scSignalMap interactions
