@@ -290,7 +290,7 @@ filter_lr_interactions = function(interactions = NULL, sender_celltypes = NULL, 
 #' @param interactions: ligand-receptor interactions dataframe from map_interactions 
 #' @return A data frame of idendified DE receptor genes found in previously idendified interactions list
 #' @export
-intersect_upreg_receptors_with_lr_interactions_1 = function(upreg_receptors = NULL, interactions = NULL) {
+intersect_upreg_receptors_with_lr_interactions = function(upreg_receptors = NULL, interactions = NULL) {
   
   message("Intersect upregulated receptors with filtered interactions")
   
