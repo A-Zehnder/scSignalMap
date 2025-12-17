@@ -401,6 +401,8 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
   LR_interactions = MapInteractions(seurat_obj, 
                                     group_by = celltype_column,
                                     species=species)
+  # Container for all pairwise results
+  all_results = list()
 for (sender in sender_celltypes){
   for(receiver in receiver_celltypes){
 
@@ -459,19 +461,17 @@ for (sender in sender_celltypes){
       ###################################
       ### Return all results together ###
       ###################################
-      return(list(
+      pair_name = paste0(sender_clean, '_', receiver_clean)
+      all_results[[pair_name]] = (list(
           LR_interactions = LR_interactions,
           de_cond_celltype = de_cond_celltype,
           upreg_receptors = upreg_receptors,
           interactions_filtered = interactions_filtered,
           upreg_receptors_filtered_and_compared = upreg_receptors_filtered_and_compared,
           enrichr_results = enrichr_results)
-      
-    
-
-    
-}
-}
+      }
+    }
+return(all_results)
 }
 ##' Create Master Interaction List
 #'
