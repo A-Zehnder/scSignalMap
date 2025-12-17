@@ -522,11 +522,7 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
      # Filter enrichr results to pathways involving upregulated receptors for Neo4J CSV
      enrichr_filtered <- filter_enrichr_by_upreg_receptors(
        enrichr_results = enrichr_results,
-       upreg_receptors_filtered_and_compared = upreg_receptors_filtered_and_compared,
-       directory = dir_path,
-       sender_clean = sender_clean,
-       receiver_clean = receiver_clean,
-       suffix = "_enrichr_results_DATABASE2.csv"
+       upreg_receptors_filtered_and_compared = upreg_receptors_filtered_and_compared
      )
     # Save per-comparison results
       write.csv(LR_interactions, file.path(directory ,paste0(sender_clean, "_",receiver_clean,"_LR_interactions2.csv")))
