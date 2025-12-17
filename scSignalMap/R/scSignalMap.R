@@ -231,8 +231,8 @@ find_upreg_receptors = function(de_condition_filtered= NULL, FC_cutoff = 0.3, sp
     message("Loading ligand-receptor information")
     # Load MultiNicheNet ligand receptor interactions
     lr_network = read.csv(system.file('extdata', 'lr_network.csv', package='scSignalMap'), header=TRUE)
-    receptor_ensembl = lr_network[,paste('ligand',species,'ensembl',sep='_')]
-    receptor_symbol = lr_network[,paste('ligand',species,'symbol',sep='_')]
+    receptor_ensembl = lr_network[,paste('receptor',species,'ensembl',sep='_')]
+    receptor_symbol = lr_network[,paste('receptor',species,'symbol',sep='_')]
     receptor_genes = unique(na.omit(receptor_ensembl))
     ensembl_to_symbol = setNames(receptor_symbol, receptor_ensembl)
 
@@ -353,7 +353,10 @@ find_enriched_pathways = function(seurat_obj = NULL, de_condition_filtered = NUL
 
     de_genes = unique(de_condition_filtered$gene_symbol)
 
-    enrichr_results = dplyr::filter(enrichment_results_combined, grepl(paste(de_genes, collapse="|"), Genes))
+    #enrichr_results = dplyr::filter(enrichment_results_combined, grepl(paste(de_genes, collapse="|"), Genes))
+    e2 = enrichment_results_combined %>% mutate(tmp = strsplit(Genes, ";"))
+    e3 = sapply(rownames(e2), function(x) { length(intersect(e2[x, "tmp"][[1]], de_genes))>0 })
+    enrichr_results = enrichment_results_combined[e3,]
     enrichr_results = enrichr_results[enrichr_results$Adjusted.P.value < adj_p_val_cutoff, ]
 
     return(enrichr_results)
