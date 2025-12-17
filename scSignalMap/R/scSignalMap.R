@@ -402,74 +402,77 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
                                     group_by = celltype_column,
                                     species=species)
 for (sender in sender_celltypes){
-  for(celltype in celltype_name){
-  message("Finding DE genes...")
-  de_cond_celltype = find_markers_btwn_cond_for_celltype(
-      seurat_obj = seurat_obj,
-      prep_SCT = prep_SCT,
-      cond_column = cond_column,
-      cond_name1 = cond_name1,
-      cond_name2 = cond_name2,
-      celltype_column = celltype_column,
-      celltype_name = celltype_name,
-      FC_cutoff = FC_cutoff,
-      adj_p_val_cutoff = adj_p_val_cutoff,
-      ensdb = ensdb)
+  for(receiver in receiver_celltypes){
 
-  message("Finding upregulated receptors...")
-  upreg_receptors = find_upreg_receptors(
-      de_condition_filtered = de_cond_celltype,
-      FC_cutoff = FC_cutoff, species=species)
+        receiver_clean = gsub("[.////]", "", receiver)
+        sender_clean = gsub("[.////]", "", sender)
+        directory = paste0("enrichr_results/", sender_clean, "_", receiver_clean, "/")
+        if (!dir.exists(directory)) dir.create(directory, recursive = TRUE)
+      
+        message("Finding DE genes...")
+      de_cond_celltype = find_markers_btwn_cond_for_celltype(
+          seurat_obj = seurat_obj,
+          prep_SCT = prep_SCT,
+          cond_column = cond_column,
+          cond_name1 = cond_name1,
+          cond_name2 = cond_name2,
+          celltype_column = celltype_column,
+          celltype_name = receiver, # receiver is the one with DE
+          FC_cutoff = FC_cutoff,
+          adj_p_val_cutoff = adj_p_val_cutoff,
+          ensdb = ensdb)
+    
+      message("Finding upregulated receptors...")
+      upreg_receptors = find_upreg_receptors(
+          de_condition_filtered = de_cond_celltype,
+          FC_cutoff = FC_cutoff, species=species)
+    
+      message("Filtering LR interactions...")
+      interactions_filtered = filter_lr_interactions(
+          interactions = LR_interactions,
+          sender_celltypes = sender_celltypes,
+          receiver_celltypes = receiver_celltypes,
+          secreted_lig = secreted_lig)
+    
+      message("Intersecting receptors with interactions...")
+      upreg_receptors_filtered_and_compared =
+            intersect_upreg_receptors_with_lr_interactions(
+          upreg_receptors = upreg_receptors,
+          interactions = interactions_filtered)
+    
+      message("Running pathway enrichment...")
+      enrichr_results = find_enriched_pathways(
+          seurat_obj = seurat_obj,
+          de_condition_filtered = de_cond_celltype,
+          enrichr_databases = enrichr_databases,
+          adj_p_val_method = adj_p_val_method,
+          adj_p_val_cutoff = adj_p_val_cutoff,
+          ensdb = ensdb)
+    # Save per-comparison results
+      write.csv(result$LR_interactions, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_LR_interactions2.csv')))
+      write.csv(result$de_cond_celltype, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_de_cond_celltype2.csv')))
+      write.csv(result$upreg_receptors, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_upreg_receptors2.csv')))
+      write.csv(result$interactions_filtered, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_interactions_filtered2.csv')))
+      write.csv(result$upreg_receptors_filtered_and_compared, file.path(directory ,paste0(sender_clean, '_',receiver_clean,'_upreg_receptors_filtered_and_compared2.csv')))
+      write.csv(result$enrichr_results, file.path(directory ,paste0(sender_clean, '_', receiver_clean,'_enrichr_results2.csv')))
+      
+      ###################################
+      ### Return all results together ###
+      ###################################
+      return(list(
+          LR_interactions = LR_interactions,
+          de_cond_celltype = de_cond_celltype,
+          upreg_receptors = upreg_receptors,
+          interactions_filtered = interactions_filtered,
+          upreg_receptors_filtered_and_compared = upreg_receptors_filtered_and_compared,
+          enrichr_results = enrichr_results)
+      
+    
 
-  message("Filtering LR interactions...")
-  interactions_filtered = filter_lr_interactions(
-      interactions = LR_interactions,
-      sender_celltypes = sender_celltypes,
-      receiver_celltypes = receiver_celltypes,
-      secreted_lig = secreted_lig)
-
-  message("Intersecting receptors with interactions...")
-  upreg_receptors_filtered_and_compared =
-        intersect_upreg_receptors_with_lr_interactions(
-      upreg_receptors = upreg_receptors,
-      interactions = interactions_filtered)
-
-  message("Running pathway enrichment...")
-  enrichr_results = find_enriched_pathways(
-      seurat_obj = seurat_obj,
-      de_condition_filtered = de_cond_celltype,
-      enrichr_databases = enrichr_databases,
-      adj_p_val_method = adj_p_val_method,
-      adj_p_val_cutoff = adj_p_val_cutoff,
-      ensdb = ensdb)
-
-  ###################################
-  ### Return all results together ###
-  ###################################
-  return(list(
-      LR_interactions = LR_interactions,
-      de_cond_celltype = de_cond_celltype,
-      upreg_receptors = upreg_receptors,
-      interactions_filtered = interactions_filtered,
-      upreg_receptors_filtered_and_compared = upreg_receptors_filtered_and_compared,
-      enrichr_results = enrichr_results))
-  
-  celltype = gsub("[.////]", "", celltype)
-  sender = gsub("[.////]", "", sender)
-  directory = paste0("enrichr_results/", sender, "_", celltype, "/")
-  if (!dir.exists(directory)) {
-    (dir.create(directory))
-  }
-  write.csv(result$LR_interactions, file.path(directory ,paste0(sender, '_',celltype,'_LR_interactions2.csv')))
-  write.csv(result$de_cond_celltype, file.path(directory ,paste0(sender, '_',celltype,'_de_cond_celltype2.csv')))
-  write.csv(result$upreg_receptors, file.path(directory ,paste0(sender, '_',celltype,'_upreg_receptors2.csv')))
-  write.csv(result$interactions_filtered, file.path(directory ,paste0(sender, '_',celltype,'_interactions_filtered2.csv')))
-  write.csv(result$upreg_receptors_filtered_and_compared, file.path(directory ,paste0(sender, '_',celltype,'_upreg_receptors_filtered_and_compared2.csv')))
-  write.csv(result$enrichr_results, file.path(directory ,paste0(sender, '_', celltype,'_enrichr_results2.csv')))
-
-}
-}
-}
+    
+            }
+        }
+    }
 ##' Create Master Interaction List
 #'
 #' This function creates master interaction list by combining DE ligands/receptors, Enrichr results, and scSignalMap interactions
