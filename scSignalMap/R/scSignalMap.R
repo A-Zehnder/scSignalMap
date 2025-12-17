@@ -546,10 +546,10 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
           upreg_receptors_filtered_and_compared = upreg_receptors_filtered_and_compared,
           enrichr_results = enrichr_results,
           enrichr_filtered = enrichr_filtered)
-      }
-     }
-    return(all_results)
-  }
+       }
+}
+return(all_results)
+}
 ##' Create Master Interaction List
 #'
 #' This function creates master interaction list by combining DE ligands/receptors, Enrichr results, and scSignalMap interactions
