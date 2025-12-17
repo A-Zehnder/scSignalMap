@@ -319,7 +319,7 @@ intersect_upreg_receptors_with_lr_interactions = function(upreg_receptors = NULL
 #' @param adj_p_val_cutoff: desired cutoff for the adjusted p-value, default is 0.05
 #' @return A data frame containing identified pathways, associated statistical values, common genes, etc.
 #' @export
-find_enriched_pathways = function(seurat_obj = NULL, de_condition_filtered = NULL, celltype_name = NULL, sender_celltypes= NULL, enrichr_databases = c("BioCarta_2016", "GO_Biological_Process_2025", "KEGG_2021_Human", "NCI-Nature_2016", "WikiPathways_2024_Human"), adj_p_val_method = "BH", adj_p_val_cutoff = 0.05, ensdb = 'EnsDb.Hsapiens.v86') {
+find_enriched_pathways = function(seurat_obj = NULL, de_condition_filtered = NULL, sender_celltypes= NULL, receiver_celltypes = NULL, enrichr_databases = c("BioCarta_2016", "GO_Biological_Process_2025", "KEGG_2021_Human", "NCI-Nature_2016", "WikiPathways_2024_Human"), adj_p_val_method = "BH", adj_p_val_cutoff = 0.05, ensdb = 'EnsDb.Hsapiens.v86') {
   
   genes = unique(as.character(de_condition_filtered$gene_symbol))
   
@@ -339,14 +339,14 @@ find_enriched_pathways = function(seurat_obj = NULL, de_condition_filtered = NUL
     data$Adjusted.P.value = p.adjust(data$P.value, method = adj_p_val_method)
     enrichment_results[[db]] = data
   }
-  celltype_name = gsub("[.////]", "", celltype_name)
-  sender_celltypes = gsub("[.////]", "", sender_celltypes)
-  directory = paste0("enrichr_results/", sender_celltypes, "_", celltype_name, "/")
+  receiver_celltypes_clean = gsub("[.////]", "", receiver_celltypes)
+  sender_celltypes_clean = gsub("[.////]", "", sender_celltypes)
+  directory = paste0("enrichr_results/", sender_celltypes_clean, "_", receiver_celltypes_clean, "/")
   if (!dir.exists(directory)) {
     dir.create(directory)
   }
   for (db in names(enrichment_results)) {
-    output = paste0(directory, sender_celltypes, "_", celltype_name, "_", db, ".csv")
+    output = paste0(directory, sender_celltypes_clean, "_", receiver_celltypes_clean, "_", db, ".csv")
     write.csv(enrichment_results[[db]], file = output, row.names = FALSE)
   }
   
