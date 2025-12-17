@@ -429,7 +429,7 @@ filter_enrichr_by_upreg_receptors <- function(enrichr_results, upreg_receptors_f
   # Keep only pathways with at least one matching receptor
   enrichr_filtered <- enrichr_results %>%
     dplyr::filter(Matching_Receptors != "" & !is.na(Matching_Receptors))
-
+  message("Filtered to ", nrow(enrichr_filtered), " pathways containing upregulated receptors.")
   return(enrichr_filtered)
 }
 
@@ -547,7 +547,7 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
           enrichr_results = enrichr_results,
           enrichr_filtered = enrichr_filtered)
        }
-}
+  }
 return(all_results)
 }
 ##' Create Master Interaction List
