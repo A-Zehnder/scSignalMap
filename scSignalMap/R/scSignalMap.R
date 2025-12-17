@@ -384,7 +384,7 @@ find_enriched_pathways = function(seurat_obj = NULL, de_condition_filtered = NUL
 ##' @param suffix Suffix for the output file, default "_enrichr_results_filtered.csv"
 ##' @return The filtered enrichr_results dataframe (also saved to disk)
 ##' @export
-filter_enrichr_by_upreg_receptors <- function(enrichr_results, upreg_receptors_filtered_and_compared) {
+filter_enrichr_by_upreg_receptors = function(enrichr_results, upreg_receptors_filtered_and_compared) {
 
   # Safety checks
   if (is.null(enrichr_results) || nrow(enrichr_results) == 0) {
@@ -448,7 +448,7 @@ filter_enrichr_by_upreg_receptors <- function(enrichr_results, upreg_receptors_f
 ##' @param prefix Prefix for filenames (e.g., "Q1_norm_test")
 ##' @return Invisibly returns list of file paths created
 ##' @export
-export_for_neo4j <- function(
+export_for_neo4j = function(
   interactions,
   output_dir = "Neo4J/",
   prefix = "scSignalMap"
@@ -528,7 +528,7 @@ export_for_neo4j <- function(
 ##' @param output_file Where to save the .cypher script (default: "Neo4J/load_scSignalMap.cypher")
 ##' @return Invisibly returns path to generated script
 ##' @export
-generate_neo4j_load_script_simple <- function(
+generate_neo4j_load_script = function(
   neo4j_dir = "Neo4J/",
   output_file = file.path(neo4j_dir, "load_scSignalMap.cypher")
 ) {
@@ -758,7 +758,7 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
   }
 export_for_neo4j(
     interactions = LR_interactions,
-    output_dir = "neo4j_import/",
+    output_dir = "Neo4J/",
     prefix = "full_dataset_Q1_norm"   # customize per run
   )
 
