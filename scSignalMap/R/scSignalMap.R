@@ -398,28 +398,28 @@ filter_enrichr_by_upreg_receptors = function(enrichr_results, upreg_receptors_fi
 
   # Standardise column names (in case Adjusted.P.value vs Adjusted_P_value)
   if ("Adjusted.P.value" %in% colnames(enrichr_results)) {
-    enrichr_results <- enrichr_results %>%
+    enrichr_results = enrichr_results %>%
       dplyr::rename(Adjusted_P_value = Adjusted.P.value)
   }
   if ("Combined.Score" %in% colnames(enrichr_results)) {
-    enrichr_results <- enrichr_results %>%
+    enrichr_results = enrichr_results %>%
       dplyr::rename(Combined_Score = Combined.Score)
   }
 
   # Unique receptor symbols (case-insensitive matching)
-  receptor_symbols <- tolower(unique(upreg_receptors_filtered_and_compared$gene_symbol))
+  receptor_symbols = tolower(unique(upreg_receptors_filtered_and_compared$gene_symbol))
 
   # Split Genes column into list and lowercase for matching
-  enrichr_results <- enrichr_results %>%
+  enrichr_results = enrichr_results %>%
     dplyr::mutate(Genes_list = lapply(strsplit(Genes, ";"), function(x) trimws(tolower(x))))
 
   # Find matching receptors (original case)
-  enrichr_results <- enrichr_results %>%
+  enrichr_results = enrichr_results %>%
     dplyr::mutate(Matching_Receptors = sapply(Genes_list, function(pathway_genes) {
-      matches <- intersect(pathway_genes, receptor_symbols)
+      matches = intersect(pathway_genes, receptor_symbols)
       if (length(matches) == 0) return("")
       # Map back to original case
-      orig <- upreg_receptors_filtered_and_compared$gene_symbol[
+      orig = upreg_receptors_filtered_and_compared$gene_symbol[
         tolower(upreg_receptors_filtered_and_compared$gene_symbol) %in% matches
       ]
       paste(unique(orig), collapse = ";")
@@ -427,7 +427,7 @@ filter_enrichr_by_upreg_receptors = function(enrichr_results, upreg_receptors_fi
     dplyr::select(-Genes_list)
 
   # Keep only pathways with at least one matching receptor
-  enrichr_filtered <- enrichr_results %>%
+  enrichr_filtered = enrichr_results %>%
     dplyr::filter(Matching_Receptors != "" & !is.na(Matching_Receptors))
   message("Filtered to ", nrow(enrichr_filtered), " pathways containing upregulated receptors.")
   return(enrichr_filtered)
@@ -457,7 +457,7 @@ export_for_neo4j = function(
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
   # 1. Sender - Ligand
-  sender_ligands <- interactions %>%
+  sender_ligands = interactions %>%
     dplyr::select(
       Sender,
       Ligand_Symbol,
@@ -470,12 +470,12 @@ export_for_neo4j = function(
     ) %>%
     dplyr::distinct()
 
-  sender_file <- file.path(output_dir, paste0(prefix, "_senders_ligands.csv"))
+  sender_file = file.path(output_dir, paste0(prefix, "_senders_ligands.csv"))
   write.csv(sender_ligands, sender_file, row.names = FALSE)
   message("Saved senders to ligands: ", sender_file)
 
   # 2. Ligand - Receptor pairs
-  lr_pairs <- interactions %>%
+  lr_pairs = interactions %>%
     dplyr::select(
       Ligand_Symbol,
       Ligand_Counts,
@@ -488,12 +488,12 @@ export_for_neo4j = function(
     ) %>%
     dplyr::distinct()
 
-  lr_file <- file.path(output_dir, paste0(prefix, "_ligands_receptor_pairs.csv"))
+  lr_file = file.path(output_dir, paste0(prefix, "_ligands_receptor_pairs.csv"))
   write.csv(lr_pairs, lr_file, row.names = FALSE)
   message("Saved L-R pairs: ", lr_file)
 
   # 3. Receptor - Receiver
-  receiver_receptors <- interactions %>%
+  receiver_receptors = interactions %>%
     dplyr::select(
       Receptor_Symbol,
       Receptor_Counts,
@@ -505,7 +505,7 @@ export_for_neo4j = function(
     ) %>%
     dplyr::distinct()
 
-  receiver_file <- file.path(output_dir, paste0(prefix, "_receptors_receivers.csv"))
+  receiver_file = file.path(output_dir, paste0(prefix, "_receptors_receivers.csv"))
   write.csv(receiver_receptors, receiver_file, row.names = FALSE)
   message("Saved receptors to receivers: ", receiver_file)
 
@@ -533,19 +533,19 @@ generate_neo4j_load_script = function(
   output_file = file.path(neo4j_dir, "load_scSignalMap.cypher")
 ) {
   # List all CSV files
-  all_files <- list.files(neo4j_dir, pattern = "\\.csv$", full.names = FALSE)
+  all_files = list.files(neo4j_dir, pattern = "\\.csv$", full.names = FALSE)
 
   # Identify core files
-  sender_file <- all_files[grep("_senders_ligands\\.csv$", all_files)]
-  lr_file     <- all_files[grep("_ligands_receptor_pairs\\.csv$", all_files)]
-  receiver_file <- all_files[grep("_receptors_receivers\\.csv$", all_files)]
-  pathway_files <- all_files[grep("_enrichr_results_DATABASE2\\.csv$", all_files)]
+  sender_file = all_files[grep("_senders_ligands\\.csv$", all_files)]
+  lr_file     = all_files[grep("_ligands_receptor_pairs\\.csv$", all_files)]
+  receiver_file = all_files[grep("_receptors_receivers\\.csv$", all_files)]
+  pathway_files = all_files[grep("_enrichr_results_DATABASE2\\.csv$", all_files)]
 
   if (length(sender_file) == 0 || length(lr_file) == 0 || length(receiver_file) == 0) {
     stop("Missing one or more core files. Found:\n", paste(all_files, collapse = "\n"))
   }
 
-  cypher <- c(
+  cypher = c(
     "// ================================================",
     "// Auto-generated Neo4j import script for scSignalMap",
     "// Generated on: ", Sys.Date(),
@@ -589,15 +589,15 @@ generate_neo4j_load_script = function(
   )
 
   if (length(pathway_files) > 0) {
-    unwinds <- character()
+    unwinds = character()
     for (f in pathway_files) {
       # Extract receiver from filename: "Sender_Receiver_enrichr_results_DATABASE2.csv" → Receiver
-      receiver <- sub(".*_", "", sub("_enrichr_results_DATABASE2\\.csv$", "", f))
-      receiver <- gsub("[.////]", "", receiver)
-      unwinds <- c(unwinds, paste0('  {file: "', f, '", receiver: "', receiver, '"}'))
+      receiver = sub(".*_", "", sub("_enrichr_results_DATABASE2\\.csv$", "", f))
+      receiver = gsub("[.////]", "", receiver)
+      unwinds = c(unwinds, paste0('  {file: "', f, '", receiver: "', receiver, '"}'))
     }
 
-    cypher <- c(cypher,
+    cypher = c(cypher,
       "\n// 4. Receiver → Signal_Pathway_Info (filtered pathways with linked receptors)",
       "UNWIND [",
       paste(unwinds, collapse = ",\n"),
@@ -665,8 +665,8 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
   all_results = list()
 
   # progress bar for loops  
-  total_pairs <- length(sender_celltypes) * length(receiver_celltypes)
-  pb <- progress_bar$new(
+  total_pairs = length(sender_celltypes) * length(receiver_celltypes)
+  pb = progress_bar$new(
     format = "[:bar] :current/:total (:percent) | :sender → :receiver | ETA: :eta",
     total = total_pairs,
     width = 80
@@ -727,7 +727,7 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
           ensdb = ensdb)
     
      # Filter enrichr results to pathways involving upregulated receptors for Neo4J CSV
-     enrichr_filtered <- filter_enrichr_by_upreg_receptors(
+     enrichr_filtered = filter_enrichr_by_upreg_receptors(
        enrichr_results = enrichr_results,
        upreg_receptors_filtered_and_compared = upreg_receptors_filtered_and_compared
      )
