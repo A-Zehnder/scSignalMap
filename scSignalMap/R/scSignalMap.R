@@ -614,7 +614,7 @@ generate_neo4j_local_load_script = function(
       "    Matching_Receptors: split(coalesce(row.Matching_Receptors, ''), ';')",
       "  }",
       "MERGE (c)-[r:receiver2signalpathway]->(z)",
-      "  ON CREATE SET r.Linked_Genes = split(coalesce(row.Genes, ''), ';');"
+      "  ON CREATE SET r.Addl_Linked_Genes = split(coalesce(row.Genes, ''), ';');"
     )
   }
 
@@ -732,7 +732,7 @@ generate_neo4j_cloud_load_script = function(
       " Matching_Receptors: split(coalesce(row.Matching_Receptors, ''), ';')",
       " }",
       "MERGE (c)-[r:receiver2signalpathway]->(z)",
-      " ON CREATE SET r.Linked_Genes = split(coalesce(row.Genes, ''), ';');"
+      " ON CREATE SET r.Addl_Linked_Genes = split(coalesce(row.Genes, ''), ';');"
     )
   }
   
