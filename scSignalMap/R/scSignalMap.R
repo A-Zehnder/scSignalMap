@@ -905,48 +905,52 @@ export_for_neo4j(
   ### Google Drive upload and cloud script generation ###
   if (upload_to_drive) {
       if (!requireNamespace("googledrive", quietly = TRUE)) {
-        stop("Package 'googledrive' is required for upload_to_drive = TRUE. Please install it with: install.packages('googledrive')")
+        stop("Package 'googledrive' is required for upload_to_drive = TRUE. Please install it.")
       }
       library(googledrive)
 
       message("\n=== Uploading Neo4J files to Google Drive ===")
-      drive_auth()  # Will prompt for authentication if needed (first time only)
+      drive_auth()  # Authenticate (browser prompt first time)
 
       # Default folder name with date
       if (is.null(drive_folder_name)) {
         drive_folder_name = paste0("scSignalMap_Neo4j_", format(Sys.Date(), "%Y%m%d"))
       }
 
-      # Create or get existing folder
+      # Create or reuse folder
       drive_folder = try(drive_get(drive_folder_name), silent = TRUE)
       if (inherits(drive_folder, "try-error") || nrow(drive_folder) == 0) {
         drive_folder = drive_mkdir(drive_folder_name)
         message("Created Google Drive folder: ", drive_folder_name)
       } else {
-        drive_folder = drive_folder[1, ]  # take first match
+        drive_folder = drive_folder[1,]
         message("Using existing Google Drive folder: ", drive_folder_name)
       }
 
-      # Upload all CSVs (batch upload of multiple files)
+      # Upload all CSVs
       local_files = list.files("Neo4J/", pattern = "\\.csv$", full.names = TRUE)
       if (length(local_files) == 0) {
         warning("No CSV files found in Neo4J/ – nothing to upload.")
       } else {
-        message("Uploading ", length(local_files), " files to folder '", drive_folder_name, "'...")
-        uploaded = lapply(local_files, function(file) {
+        message("Uploading ", length(local_files), " files...")
+        uploaded_list = lapply(local_files, function(file) {
           drive_upload(media = file, path = drive_folder, overwrite = TRUE)
         })
-        uploaded = do.call(rbind, uploaded)  # convert list of dribbles to single dribble
+        uploaded = do.call(rbind, uploaded_list)  # Combine into single dribble
 
-        # Set public sharing ("Anyone with the link" can view)
+        # Set public sharing
         message("Setting files to 'Anyone with the link'...")
         drive_share(uploaded, role = "reader", type = "anyone")
 
-        # Get direct download links
-        file_info = drive_reveal(uploaded, "webContentLink")
-        file_urls = setNames(file_info$webContentLink, file_info$name)
+        # Extract file IDs and build direct download URLs
+        file_ids   = uploaded$id
+        file_names = uploaded$name
+        file_urls  = setNames(
+          paste0("https://drive.google.com/uc?id=", file_ids, "&export=download"),
+          file_names
+        )
 
-        message("Direct download URLs generated (ready for Neo4j cloud import):")
+        message("Direct download URLs generated (perfect for Neo4j cloud LOAD CSV):")
         print(file_urls)
 
         if (generate_cloud_script) {
@@ -955,7 +959,7 @@ export_for_neo4j(
             output_file = "Neo4J/load_scSignalMap_cloud.cypher"
           )
           message("\nCloud load script ready: Neo4J/load_scSignalMap_cloud.cypher")
-          message("Run this script directly in your Neo4j Sandbox or AuraDB Browser!")
+          message("Paste and run this script directly in your Neo4j Sandbox/Aura Browser!")
         }
       }
     }
