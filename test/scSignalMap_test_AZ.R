@@ -1,5 +1,8 @@
 # remotes::install_github('A-Zehnder/scSignalMap/scSignalMap')
 
+# remove previous version if necessary
+# detach("package:scSignalMap", unload = TRUE)
+# remove.packages("scSignalMap")
 
 library(Seurat)
 library(dplyr)
