@@ -467,8 +467,8 @@ export_for_neo4j = function(
       Ligand_Counts,
       Ligand_gte_3,
       Ligand_gte_10
-    ) %>%
-    dplyr::distinct()
+    ) #%>%
+    #dplyr::distinct()
 
   sender_file = file.path(output_dir, paste0(prefix, "_senders_ligands.csv"))
   write.csv(sender_ligands, sender_file, row.names = FALSE)
@@ -485,8 +485,8 @@ export_for_neo4j = function(
       Receptor_Counts,
       Receptor_gte_3,
       Receptor_gte_10
-    ) %>%
-    dplyr::distinct()
+    ) #%>%
+    #dplyr::distinct()
 
   lr_file = file.path(output_dir, paste0(prefix, "_ligands_receptor_pairs.csv"))
   write.csv(lr_pairs, lr_file, row.names = FALSE)
@@ -502,8 +502,8 @@ export_for_neo4j = function(
       Receptor_Cluster_Marker,
       Receiver,
       Receptor_Avg_Exp
-    ) %>%
-    dplyr::distinct()
+    ) #%>%
+    #dplyr::distinct()
 
   receiver_file = file.path(output_dir, paste0(prefix, "_receptors_receivers.csv"))
   write.csv(receiver_receptors, receiver_file, row.names = FALSE)
