@@ -764,9 +764,20 @@ generate_neo4j_cloud_load_script = function(
 #' @param adj_p_val_cutoff: adjusted p-value cutoff for differential expression and pathway enrichment, default = 0.05
 #' @param enrichr_databases: databases that Enrichr will use for pathway idenification, default includes c("BioCarta_2016", "GO_Biological_Process_2025", "KEGG_2021_Human", "NCI-Nature_2016", "WikiPathways_2024_Human")
 #' @param adj_p_val_method: method for p-value adjustments, default = "BH" 
+
+##' @param upload_to_drive Logical; if TRUE, uploads all Neo4J CSVs to Google Drive,
+##'                        sets public sharing, and generates a cloud-compatible load script.
+##'                        Requires the 'googledrive' package and authentication.
+##' @param drive_folder_name Name of the Google Drive folder to create/upload into (default: "scSignalMap_Neo4j_[date]")
+##' @param generate_local_script Logical; whether to generate the local file:/// script (default: TRUE)
+##' @param generate_cloud_script Logical; whether to generate the HTTPS cloud script (default: TRUE when upload_to_drive = TRUE)
+
 #' @return a list containing ligand–receptor interactions, DE genes, upregulated receptors, filtered interactions, intersected receptors, and pathway enrichment results.
 #' @export
-run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, cond_column = NULL, cond_name1 = NULL, cond_name2 = NULL, celltype_column = NULL, celltype_name = NULL, sender_celltypes = NULL, receiver_celltypes = NULL, secreted_lig = TRUE, FC_cutoff = 0.3, adj_p_val_cutoff = 0.05, enrichr_databases = c("BioCarta_2016", "GO_Biological_Process_2025", "KEGG_2021_Human", "NCI-Nature_2016", "WikiPathways_2024_Human"), adj_p_val_method = "BH", ensdb = 'EnsDb.Hsapiens.v86', species='human') {
+run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, cond_column = NULL, cond_name1 = NULL, cond_name2 = NULL, celltype_column = NULL, celltype_name = NULL, sender_celltypes = NULL, receiver_celltypes = NULL, secreted_lig = TRUE, FC_cutoff = 0.3, adj_p_val_cutoff = 0.05, enrichr_databases = c("BioCarta_2016", "GO_Biological_Process_2025", "KEGG_2021_Human", "NCI-Nature_2016", "WikiPathways_2024_Human"), adj_p_val_method = "BH", ensdb = 'EnsDb.Hsapiens.v86', species='human', upload_to_drive = FALSE, drive_folder_name = NULL, generate_local_script = TRUE, generate_cloud_script = NULL) {
+  if (is.null(generate_cloud_script)) {
+    generate_cloud_script = upload_to_drive
+  }
 
   #####################
   ### Run pipeline  ###
@@ -876,35 +887,77 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
           enrichr_filtered = enrichr_filtered)
        }
   }
+# export core Neo4J files
 export_for_neo4j(
     interactions = LR_interactions,
     output_dir = "Neo4J/",
     prefix = "full_dataset_Q1_norm"   # customize per run
   )
 
-generate_neo4j_local_load_script(
-  neo4j_dir = "Neo4J/",
-  output_file = "Neo4J/load_my_analysis_local.cypher"
-)
+# Generate local script
+  if (generate_local_script) {
+    generate_neo4j_local_load_script(
+      neo4j_dir = "Neo4J/",
+      output_file = "Neo4J/load_scSignalMap_local.cypher"
+    )
+  }
 
-drive_auth()  # Use the Google account that owns the Drive folder
-# List local CSV files
-local_files <- list.files("Neo4J/", pattern = "\\.csv$", full.names = TRUE)
-# Create/upload to a folder called "scSignalMap_Neo4J" (change name as needed)
-drive_folder <- drive_mkdir("scSignalMap_Neo4J")
-# Upload all files
-uploaded <- drive_upload_media(local_files, path = drive_folder)
-# Batch set permissions to "anyone with the link" (reader role)
-drive_share(uploaded, role = "reader", type = "anyone")
-# Get file info including webContentLink (direct download URL)
-file_info <- drive_reveal(uploaded, "webContentLink")
-# Create the named vector for your function
-file_urls <- setNames(file_info$webContentLink, file_info$name)
-# View it
-print(file_urls)
-generate_neo4j_cloud_load_script(file_urls, output_file = "Neo4J/load_scSignalMap_cloud.cypher")
+  ### Google Drive upload and cloud script generation ###
+  if (upload_to_drive) {
+    if (!requireNamespace("googledrive", quietly = TRUE)) {
+      stop("Package 'googledrive' is required for upload_to_drive = TRUE. Please install it.")
+    }
+    library(googledrive) # backup if didn't load
 
-return(all_results)
+    message("\n=== Uploading Neo4J files to Google Drive ===")
+    drive_auth()  # Will prompt for authentication if needed
+
+    # Default folder name with date
+    if (is.null(drive_folder_name)) {
+      drive_folder_name <- paste0("scSignalMap_Neo4j_", format(Sys.Date(), "%Y%m%d"))
+    }
+
+    # Create folder (or get existing)
+    drive_folder <- try(drive_get(drive_folder_name), silent = TRUE)
+    if (inherits(drive_folder, "try-error") || nrow(drive_folder) == 0) {
+      drive_folder <- drive_mkdir(drive_folder_name)
+      message("Created Google Drive folder: ", drive_folder_name)
+    } else {
+      drive_folder <- drive_folder[1, ]  # take first match
+      message("Using existing Google Drive folder: ", drive_folder_name)
+    }
+
+    # Upload all CSVs
+    local_files <- list.files("Neo4J/", pattern = "\\.csv$", full.names = TRUE)
+    if (length(local_files) == 0) {
+      warning("No CSV files found in Neo4J/ – nothing to upload.")
+    } else {
+      message("Uploading ", length(local_files), " files...")
+      uploaded = drive_upload_media(local_files, path = drive_folder, overwrite = TRUE)
+
+      # Set public sharing
+      message("Setting files to 'Anyone with the link'...")
+      drive_share(uploaded, role = "reader", type = "anyone")
+
+      # Get direct download links
+      file_info = drive_reveal(uploaded, "webContentLink")
+      file_urls = setNames(file_info$webContentLink, file_info$name)
+
+      message("Direct download URLs generated:")
+      print(file_urls)
+
+      if (generate_cloud_script) {
+        generate_neo4j_cloud_load_script(
+          file_urls = file_urls,
+          output_file = "Neo4J/load_scSignalMap_cloud.cypher"
+        )
+        message("\nCloud load script ready: Neo4J/load_scSignalMap_cloud.cypher")
+        message("Copy this script into your Neo4j Sandbox/Aura Browser and run it directly!")
+      }
+    }
+  }
+
+  return(all_results)
 }
 ##' Create Master Interaction List
 #'
