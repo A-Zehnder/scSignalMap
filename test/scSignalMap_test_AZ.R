@@ -1,1 +1,33 @@
+# remotes::install_github('A-Zehnder/scSignalMap/scSignalMap')
+
+
+library(Seurat)
+library(dplyr)
+library(fastmatch)
+library(data.table)
+library(scSignalMap)
+library(EnsDb.Mmusculus.v79)
+library(enrichR)
+library(tidyr)
+library(stringr)
+library(AnnotationDbi)
+
+library(progress)
+library(googledrive)
+
+#seurat_obj = readRDS('analysis/extra_analysis/all_combined_sct.rds')
+
+# sender cells
+sender_all = c('Endo.','VSMC/Fibro.', 'Mo', 'M inflam.', 'M TremHi', 'DC', 'N', 'T')
+
+# receiver cells
+celltypes = c('Endo.', 'VSMC/Fibro.', 'Mo', 'M inflam.', 'M TremHi', 'DC', 'N', 'T')
+
+# example 
+result = run_full_scSignalMap_pipeline(seurat_obj = seurat_obj, prep_SCT = TRUE, cond_column = 'source', 
+                                         cond_name1 = 'MoNP', cond_name2 = 'MoNP_VP', celltype_column = 'cell_types', 
+                                         celltype_name = celltypes, sender_celltypes = sender_all, receiver_celltypes = celltypes, 
+                                         secreted_lig = TRUE, FC_cutoff = 0.3, adj_p_val_cutoff = 0.05, enrichr_databases = 
+                                           c("BioCarta_2016", "GO_Biological_Process_2025", "KEGG_2019_Mouse", "NCI-Nature_2016", "WikiPathways_2024_Mouse"), 
+                                         adj_p_val_method = "BH", ensdb = 'EnsDb.Mmusculus.v79', species='mouse', upload_to_drive = TRUE, drive_folder_name = "Test_Neo4j_20251217")
 
