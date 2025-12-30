@@ -763,20 +763,28 @@ generate_neo4j_cloud_load_script = function(
 #' @param enrichr_databases: databases that Enrichr will use for pathway idenification, default includes c("BioCarta_2016", "GO_Biological_Process_2025", "KEGG_2021_Human", "NCI-Nature_2016", "WikiPathways_2024_Human")
 #' @param adj_p_val_method: method for p-value adjustments, default = "BH" 
 
-##' @param upload_to_drive Logical; if TRUE, uploads all Neo4J CSVs to Google Drive,
-##'                        sets public sharing, and generates a cloud-compatible load script.
-##'                        Requires the 'googledrive' package and authentication.
-##' @param drive_folder_name Name of the Google Drive folder to create/upload into (default: "scSignalMap_Neo4j_[date]")
-##' @param generate_local_script Logical; whether to generate the local file:/// script (default: TRUE)
-##' @param generate_cloud_script Logical; whether to generate the HTTPS cloud script (default: TRUE when upload_to_drive = TRUE)
 
 #' @return a list containing ligand–receptor interactions, DE genes, upregulated receptors, filtered interactions, intersected receptors, and pathway enrichment results.
 #' @export
-run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, cond_column = NULL, cond_name1 = NULL, cond_name2 = NULL, celltype_column = NULL, celltype_name = NULL, sender_celltypes = NULL, receiver_celltypes = NULL, secreted_lig = TRUE, FC_cutoff = 0.3, adj_p_val_cutoff = 0.05, enrichr_databases = c("BioCarta_2016", "GO_Biological_Process_2025", "KEGG_2021_Human", "NCI-Nature_2016", "WikiPathways_2024_Human"), adj_p_val_method = "BH", ensdb = 'EnsDb.Hsapiens.v86', species='human', upload_to_drive = FALSE, drive_folder_name = NULL, generate_local_script = TRUE, generate_cloud_script = NULL) {
-  if (is.null(generate_cloud_script)) {
-    generate_cloud_script = upload_to_drive
-  }
-
+run_full_scSignalMap_pipeline = function(
+    seurat_obj = NULL, 
+    prep_SCT = TRUE, 
+    cond_column = NULL, 
+    cond_name1 = NULL, 
+    cond_name2 = NULL, 
+    celltype_column = NULL, 
+    celltype_name = NULL, 
+    sender_celltypes = NULL, 
+    receiver_celltypes = NULL, 
+    secreted_lig = TRUE, 
+    FC_cutoff = 0.3, 
+    adj_p_val_cutoff = 0.05, 
+    enrichr_databases = c("BioCarta_2016", "GO_Biological_Process_2025", "KEGG_2021_Human",
+                          "NCI-Nature_2016", "WikiPathways_2024_Human"), 
+    adj_p_val_method = "BH", 
+    ensdb = 'EnsDb.Hsapiens.v86', 
+    species='human'){
+  
   #####################
   ### Run pipeline  ###
   #####################
@@ -786,184 +794,227 @@ run_full_scSignalMap_pipeline = function(seurat_obj = NULL, prep_SCT = TRUE, con
                                     species=species)
   # Container for all pairwise results
   all_results = list()
-
+  
   # progress bar for loops  
   total_pairs = length(sender_celltypes) * length(receiver_celltypes)
   pb = progress_bar$new(
-    format = "[:bar] :current/:total (:percent) | :sender → :receiver | ETA: :eta\n",
+    format = "[:bar] :current/:total (:percent) | :sender to :receiver | ETA: :eta\n",
     total = total_pairs,
     width = 80
   )
   pb$tick(0)  # initialize
   for (sender in sender_celltypes) {
     for(receiver in receiver_celltypes) {
-
-        receiver_clean = gsub("[.////]", "", receiver)
-        sender_clean = gsub("[.////]", "", sender)
-
-        pb$tick(tokens = list(sender = sender_clean, receiver = receiver_clean))
-        
-        directory = paste0("enrichr_results/", sender_clean, "_", receiver_clean, "/")
-        directory2 = "Neo4J/"
-        if (!dir.exists(directory)) dir.create(directory, recursive = TRUE)
       
-        message("Finding DE genes...")
+      receiver_clean = gsub("[.////]", "", receiver)
+      sender_clean = gsub("[.////]", "", sender)
+      
+      pb$tick(tokens = list(sender = sender_clean, receiver = receiver_clean))
+      
+      message("Processing ", sender_clean, " → ", receiver_clean, "...")
+      
+      message("Finding DE genes...")
       de_cond_celltype = find_markers_btwn_cond_for_celltype(
-          seurat_obj = seurat_obj,
-          prep_SCT = prep_SCT,
-          cond_column = cond_column,
-          cond_name1 = cond_name1,
-          cond_name2 = cond_name2,
-          celltype_column = celltype_column,
-          celltype_name = receiver, # receiver is the one with DE
-          FC_cutoff = FC_cutoff,
-          adj_p_val_cutoff = adj_p_val_cutoff,
-          ensdb = ensdb)
-    
+        seurat_obj = seurat_obj,
+        prep_SCT = prep_SCT,
+        cond_column = cond_column,
+        cond_name1 = cond_name1,
+        cond_name2 = cond_name2,
+        celltype_column = celltype_column,
+        celltype_name = receiver, # receiver is the one with DE
+        FC_cutoff = FC_cutoff,
+        adj_p_val_cutoff = adj_p_val_cutoff,
+        ensdb = ensdb)
+      
       message("Finding upregulated receptors...")
       upreg_receptors = find_upreg_receptors(
-          de_condition_filtered = de_cond_celltype,
-          FC_cutoff = FC_cutoff, species=species)
-    
+        de_condition_filtered = de_cond_celltype,
+        FC_cutoff = FC_cutoff, 
+        species=species)
+      
       message("Filtering LR interactions...")
       interactions_filtered = filter_lr_interactions(
-          interactions = LR_interactions,
-          sender_celltypes = sender,
-          receiver_celltypes = receiver,
-          secreted_lig = secreted_lig)
-    
+        interactions = LR_interactions,
+        sender_celltypes = sender,
+        receiver_celltypes = receiver,
+        secreted_lig = secreted_lig)
+      
       message("Intersecting receptors with interactions...")
       upreg_receptors_filtered_and_compared =
-            intersect_upreg_receptors_with_lr_interactions(
+        intersect_upreg_receptors_with_lr_interactions(
           upreg_receptors = upreg_receptors,
           interactions = interactions_filtered)
-    
+      
       message("Running pathway enrichment...")
       enrichr_results = find_enriched_pathways(
-          seurat_obj = seurat_obj,
-          de_condition_filtered = de_cond_celltype,
-          sender_celltypes = sender,
-          receiver_celltypes = receiver,
-          enrichr_databases = enrichr_databases,
-          adj_p_val_method = adj_p_val_method,
-          adj_p_val_cutoff = adj_p_val_cutoff,
-          ensdb = ensdb)
-    
-     # Filter enrichr results to pathways involving upregulated receptors for Neo4J CSV
-     enrichr_filtered = filter_enrichr_by_upreg_receptors(
-       enrichr_results = enrichr_results,
-       upreg_receptors_filtered_and_compared = upreg_receptors_filtered_and_compared
-     )
-    # Save per-comparison results
-      write.csv(LR_interactions, file.path(directory ,paste0(sender_clean, "_",receiver_clean,"_LR_interactions2.csv")))
-      write.csv(de_cond_celltype, file.path(directory ,paste0(sender_clean, "_",receiver_clean,"_de_cond_celltype2.csv")))
-      write.csv(upreg_receptors, file.path(directory ,paste0(sender_clean, "_",receiver_clean,"_upreg_receptors2.csv")))
-      write.csv(interactions_filtered, file.path(directory ,paste0(sender_clean, "_",receiver_clean,"_interactions_filtered2.csv")))
-      write.csv(upreg_receptors_filtered_and_compared, file.path(directory ,paste0(sender_clean, "_",receiver_clean,"_upreg_receptors_filtered_and_compared2.csv")))
-      write.csv(enrichr_results, file.path(directory ,paste0(sender_clean, "_", receiver_clean,"_enrichr_results2.csv")))
-      if (!dir.exists(directory2)) dir.create(directory2, recursive = TRUE)
-        # Save filtered enrichr only if there are pathways
-        if (!is.null(enrichr_filtered) && nrow(enrichr_filtered) > 0) {
-          write.csv(enrichr_filtered, file.path(directory2, paste0(sender_clean, "_", receiver_clean, "_enrichr_results_DATABASE2.csv")), row.names = FALSE)
-          message("Saved ", nrow(enrichr_filtered), " signaling-relevant pathways for ", sender_clean, " to ", receiver_clean)
-        } else {
-          message("No signaling-relevant enriched pathways for ", sender_clean, " to ", receiver_clean, " (empty file skipped)")
-        }
-
-        
+        seurat_obj = seurat_obj,
+        de_condition_filtered = de_cond_celltype,
+        sender_celltypes = sender,
+        receiver_celltypes = receiver,
+        enrichr_databases = enrichr_databases,
+        adj_p_val_method = adj_p_val_method,
+        adj_p_val_cutoff = adj_p_val_cutoff,
+        ensdb = ensdb)
+      
+      # Filter enrichr results to pathways involving upregulated receptors for Neo4J CSV
+      enrichr_filtered = filter_enrichr_by_upreg_receptors(
+        enrichr_results = enrichr_results,
+        upreg_receptors_filtered_and_compared = upreg_receptors_filtered_and_compared
+      )
+     
+      
+      
       ###################################
       ### Return all results together ###
       ###################################
       pair_name = paste0(sender_clean, "_", receiver_clean)
       all_results[[pair_name]] = list(
-          LR_interactions = LR_interactions,
-          de_cond_celltype = de_cond_celltype,
-          upreg_receptors = upreg_receptors,
-          interactions_filtered = interactions_filtered,
-          upreg_receptors_filtered_and_compared = upreg_receptors_filtered_and_compared,
-          enrichr_results = enrichr_results,
-          enrichr_filtered = enrichr_filtered)
-       }
+        LR_interactions = LR_interactions,
+        de_cond_celltype = de_cond_celltype,
+        upreg_receptors = upreg_receptors,
+        interactions_filtered = interactions_filtered,
+        upreg_receptors_filtered_and_compared = upreg_receptors_filtered_and_compared,
+        enrichr_results = enrichr_results,
+        enrichr_filtered = enrichr_filtered,
+        sender = sender,
+        receiver = receiver,
+        sender_clean = sender_clean,
+        receiver_clean = receiver_clean)
+    }
   }
-# export core Neo4J files
-export_for_neo4j(
+  
+  
+  return(all_results)
+}
+
+##' Run Post-Processing & Neo4J Export
+##'
+##' Takes the output from run_scSignalMap_core() and saves all CSV files,
+##' exports core Neo4J tables, and generates load scripts.
+##'
+##' @param all_results List returned by run_full_scSignalMap_pipeline()
+##' @param neo4j_prefix Prefix for core Neo4J CSV filenames (default: "scSignalMap")
+##' @param upload_to_drive Logical; upload Neo4J CSVs to Google Drive and generate cloud script
+##' @param drive_folder_name Name of Google Drive folder (default: auto-generated with date)
+##' @param generate_local_script Logical; create local file:/// load script
+##' @param generate_cloud_script Logical; create HTTPS cloud load script (auto-enabled if upload_to_drive=TRUE)
+##' @export
+run_post_processing_Neo4J = function(
+    all_results,
+    neo4j_prefix = "scSignalMap",
+    upload_to_drive = FALSE,
+    drive_folder_name = NULL,
+    generate_local_script = TRUE,
+    generate_cloud_script = NULL
+) {
+  if (is.null(generate_cloud_script)) {
+    generate_cloud_script = upload_to_drive
+  }
+  
+  # Ensure directories exist
+  dir.create("enrichr_results", showWarnings = FALSE, recursive = TRUE)
+  dir.create("Neo4J", showWarnings = FALSE, recursive = TRUE)
+  
+  # Grab the global LR_interactions (same for all pairs)
+  LR_interactions = all_results[[1]]$LR_interactions
+  
+  message("Saving per-pair CSV files and filtered enrichr results...")
+  
+  for (pair_name in names(all_results)) {
+    res = all_results[[pair_name]]
+    sender_clean   = res$sender_clean
+    receiver_clean = res$receiver_clean
+    
+    dir_pair = file.path("enrichr_results", paste0(sender_clean, "_", receiver_clean))
+    dir.create(dir_pair, showWarnings = FALSE, recursive = TRUE)
+    
+    # Save individual results
+    write.csv(res$LR_interactions, file.path(dir_pair, paste0(sender_clean, "_", receiver_clean, "_LR_interactions2.csv")), row.names = FALSE)
+    write.csv(res$de_cond_celltype, file.path(dir_pair, paste0(sender_clean, "_", receiver_clean, "_de_cond_celltype2.csv")), row.names = FALSE)
+    write.csv(res$upreg_receptors, file.path(dir_pair, paste0(sender_clean, "_", receiver_clean, "_upreg_receptors2.csv")), row.names = FALSE)
+    write.csv(res$interactions_filtered, file.path(dir_pair, paste0(sender_clean, "_", receiver_clean, "_interactions_filtered2.csv")), row.names = FALSE)
+    write.csv(res$upreg_receptors_filtered_and_compared, file.path(dir_pair, paste0(sender_clean, "_", receiver_clean, "_upreg_receptors_filtered_and_compared2.csv")), row.names = FALSE)
+    write.csv(res$enrichr_results, file.path(dir_pair, paste0(sender_clean, "_", receiver_clean, "_enrichr_results2.csv")), row.names = FALSE)
+    
+    # Save filtered enrichr for Neo4J (only if non-empty)
+    if (!is.null(res$enrichr_filtered) && nrow(res$enrichr_filtered) > 0) {
+      neo4j_file = file.path("Neo4J",
+                             paste0(sender_clean, "_", receiver_clean, "_enrichr_results_DATABASE2.csv"))
+      write.csv(res$enrichr_filtered, neo4j_file, row.names = FALSE)
+      message("Saved ", nrow(res$enrichr_filtered),
+              " signaling-relevant pathways for ", pair_name)
+    } else {
+      message("No signaling-relevant pathways for ", pair_name, " (skipped)")
+    }
+  }
+  
+  # Export the three core Neo4J tables (from full LR_interactions)
+  export_for_neo4j(
     interactions = LR_interactions,
     output_dir = "Neo4J/",
-    prefix = "full_dataset_Q1_norm"   # customize per run
+    prefix = neo4j_prefix
   )
-
-# Generate local script
+  
+  # Generate scripts
   if (generate_local_script) {
     generate_neo4j_local_load_script(
       neo4j_dir = "Neo4J/",
       output_file = "Neo4J/load_scSignalMap_local.cypher"
     )
   }
-
-  ### Google Drive upload and cloud script generation ###
+  
   if (upload_to_drive) {
-      if (!requireNamespace("googledrive", quietly = TRUE)) {
-        stop("Package 'googledrive' is required for upload_to_drive = TRUE. Please install it.")
-      }
-      library(googledrive)
-
-      message("\n=== Uploading Neo4J files to Google Drive ===")
-      drive_auth()  # Authenticate (browser prompt first time)
-
-      # Default folder name with date
-      if (is.null(drive_folder_name)) {
-        drive_folder_name = paste0("scSignalMap_Neo4j_", format(Sys.Date(), "%Y%m%d"))
-      }
-
-      # Create or reuse folder
-      drive_folder = try(drive_get(drive_folder_name), silent = TRUE)
-      if (inherits(drive_folder, "try-error") || nrow(drive_folder) == 0) {
-        drive_folder = drive_mkdir(drive_folder_name)
-        message("Created Google Drive folder: ", drive_folder_name)
-      } else {
-        drive_folder = drive_folder[1,]
-        message("Using existing Google Drive folder: ", drive_folder_name)
-      }
-
-      # Upload all CSVs
-      local_files = list.files("Neo4J/", pattern = "\\.csv$", full.names = TRUE)
-      if (length(local_files) == 0) {
-        warning("No CSV files found in Neo4J/ – nothing to upload.")
-      } else {
-        message("Uploading ", length(local_files), " files...")
-        uploaded_list = lapply(local_files, function(file) {
-          drive_upload(media = file, path = drive_folder, overwrite = TRUE)
-        })
-        uploaded = do.call(rbind, uploaded_list)  # Combine into single dribble
-
-        # Set public sharing
-        message("Setting files to 'Anyone with the link'...")
-        drive_share(uploaded, role = "reader", type = "anyone")
-
-        # Extract file IDs and build direct download URLs
-        file_ids   = uploaded$id
-        file_names = uploaded$name
-        file_urls  = setNames(
-          paste0("https://drive.google.com/uc?id=", file_ids, "&export=download"),
-          file_names
+    if (!requireNamespace("googledrive", quietly = TRUE)) {
+      stop("Package 'googledrive' needed for upload_to_drive = TRUE.")
+    }
+    library(googledrive)
+    
+    message("\n=== Uploading Neo4J files to Google Drive ===")
+    drive_auth()
+    
+    if (is.null(drive_folder_name)) {
+      drive_folder_name = paste0("scSignalMap_Neo4j_", format(Sys.Date(), "%Y%m%d"))
+    }
+    
+    drive_folder = try(drive_get(drive_folder_name), silent = TRUE)
+    if (inherits(drive_folder, "try-error") || nrow(drive_folder) == 0) {
+      drive_folder = drive_mkdir(drive_folder_name)
+      message("Created folder: ", drive_folder_name)
+    } else {
+      drive_folder = drive_folder[1, ]
+    }
+    
+    local_files = list.files("Neo4J/", pattern = "\\.csv$", full.names = TRUE)
+    if (length(local_files) == 0) {
+      warning("No CSV files in Neo4J/ to upload.")
+    } else {
+      message("Uploading ", length(local_files), " files...")
+      uploaded = lapply(local_files, function(f) drive_upload(media = f, path = drive_folder, overwrite = TRUE))
+      uploaded = do.call(rbind, uploaded)
+      
+      drive_share(uploaded, role = "reader", type = "anyone")
+      
+      file_urls = setNames(
+        paste0("https://drive.google.com/uc?id=", uploaded$id, "&export=download"),
+        uploaded$name
+      )
+      
+      message("Direct download URLs:")
+      print(file_urls)
+      
+      if (generate_cloud_script) {
+        generate_neo4j_cloud_load_script(
+          file_urls = file_urls,
+          output_file = "Neo4J/load_scSignalMap_cloud.cypher"
         )
-
-        message("Direct download URLs generated (perfect for Neo4j cloud LOAD CSV):")
-        print(file_urls)
-
-        if (generate_cloud_script) {
-          generate_neo4j_cloud_load_script(
-            file_urls = file_urls,
-            output_file = "Neo4J/load_scSignalMap_cloud.cypher"
-          )
-          message("\nCloud load script ready: Neo4J/load_scSignalMap_cloud.cypher")
-          message("Paste and run this script directly in your Neo4j Sandbox/Aura Browser!")
-        }
+        message("Cloud load script generated: Neo4J/load_scSignalMap_cloud.cypher")
       }
     }
-
-  return(all_results)
-}
+  }
+  
+  message("Post-processing and Neo4J export complete.")
+  invisible(NULL)
+}                                      
 ##' Create Master Interaction List
 #'
 #' This function creates master interaction list by combining DE ligands/receptors, Enrichr results, and scSignalMap interactions
