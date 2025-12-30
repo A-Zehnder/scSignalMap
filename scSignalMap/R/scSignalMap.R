@@ -367,21 +367,21 @@ find_enriched_pathways = function(seurat_obj = NULL, de_condition_filtered = NUL
 }
 
 
-##' Filter Enrichr results to keep only pathways containing upregulated receptors
-##'
-##' Takes the full Enrichr results and the upregulated receptors (after intersection with LR pairs)
-##' and keeps only those pathways that contain at least one of the receptor gene symbols.
-##' It adds a column "Matching_Receptors" with the matching receptor(s) and overwrites/saves
-##' the filtered enrichr results.
-##'
-##' @param enrichr_results Dataframe returned by find_enriched_pathways (combined across databases)
-##' @param upreg_receptors_filtered_and_compared Dataframe from intersect_upreg_receptors_with_lr_interactions
-##' @param directory Directory where the filtered file should be saved
-##' @param sender_clean Cleaned sender cell type name (for filename)
-##' @param receiver_clean Cleaned receiver cell type name (for filename)
-##' @param suffix Suffix for the output file, default "_enrichr_results_filtered.csv"
-##' @return The filtered enrichr_results dataframe (also saved to disk)
-##' @export
+#' Filter Enrichr results to keep only pathways containing upregulated receptors
+#'
+#' Takes the full Enrichr results and the upregulated receptors (after intersection with LR pairs)
+#' and keeps only those pathways that contain at least one of the receptor gene symbols.
+#' It adds a column "Matching_Receptors" with the matching receptor(s) and overwrites/saves
+#' the filtered enrichr results.
+#'
+#' @param enrichr_results Dataframe returned by find_enriched_pathways (combined across databases)
+#' @param upreg_receptors_filtered_and_compared Dataframe from intersect_upreg_receptors_with_lr_interactions
+#' @param directory Directory where the filtered file should be saved
+#' @param sender_clean Cleaned sender cell type name (for filename)
+#' @param receiver_clean Cleaned receiver cell type name (for filename)
+#' @param suffix Suffix for the output file, default "_enrichr_results_filtered.csv"
+#' @return The filtered enrichr_results dataframe (also saved to disk)
+#' @export
 filter_enrichr_by_upreg_receptors = function(enrichr_results, upreg_receptors_filtered_and_compared) {
 
   # Safety checks
@@ -432,20 +432,20 @@ filter_enrichr_by_upreg_receptors = function(enrichr_results, upreg_receptors_fi
 }
 
 
-##' Export scSignalMap results in Neo4J-friendly format
-##'
-##' Takes the full MapInteractions output and creates three clean CSV files:
-##' 1. senders_ligands: One row per sender-ligand with expression stats
-##' 2. ligands_receptor_pairs: One row per valid L-R pair with stats
-##' 3. receptors_receivers: One row per receptor-receiver with expression stats
-##'
-##' These are ideal for importing into Neo4j as nodes and relationships.
-##'
-##' @param interactions Dataframe from MapInteractions() (full pairs_data)
-##' @param output_dir Directory to save the three CSV files (default: "Neo4J/")
-##' @param prefix Prefix for filenames (e.g., "Q1_norm_test")
-##' @return Invisibly returns list of file paths created
-##' @export
+#' Export scSignalMap results in Neo4J-friendly format
+#'
+#' Takes the full MapInteractions output and creates three clean CSV files:
+#' 1. senders_ligands: One row per sender-ligand with expression stats
+#' 2. ligands_receptor_pairs: One row per valid L-R pair with stats
+#' 3. receptors_receivers: One row per receptor-receiver with expression stats
+#'
+#' These are ideal for importing into Neo4j as nodes and relationships.
+#'
+#' @param interactions Dataframe from MapInteractions() (full pairs_data)
+#' @param output_dir Directory to save the three CSV files (default: "Neo4J/")
+#' @param prefix Prefix for filenames (e.g., "Q1_norm_test")
+#' @return Invisibly returns list of file paths created
+#' @export
 export_for_neo4j = function(
   interactions,
   output_dir = "Neo4J/",
@@ -515,17 +515,17 @@ export_for_neo4j = function(
 }
 
                                       
-##' Generate Neo4j LOAD CSV script using local files from scSignalMap pipeline
-##'
-##' Automatically finds:
-##' - The three core files in Neo4J/ (*_senders_ligands.csv, etc.)
-##' - All filtered enrichr files in Neo4J/ (*_enrichr_results_DATABASE2.csv)
-##' and generates a complete Cypher script using file:/// paths.
-##'
-##' @param neo4j_dir Directory with all CSV files (default: "Neo4J/")
-##' @param output_file Where to save the .cypher script (default: "Neo4J/load_scSignalMap.cypher")
-##' @return Invisibly returns path to generated script
-##' @export
+#' Generate Neo4j LOAD CSV script using local files from scSignalMap pipeline
+#'
+#' Automatically finds:
+#' - The three core files in Neo4J/ (*_senders_ligands.csv, etc.)
+#' - All filtered enrichr files in Neo4J/ (*_enrichr_results_DATABASE2.csv)
+#' and generates a complete Cypher script using file:/// paths.
+#'
+#' @param neo4j_dir Directory with all CSV files (default: "Neo4J/")
+#' @param output_file Where to save the .cypher script (default: "Neo4J/load_scSignalMap.cypher")
+#' @return Invisibly returns path to generated script
+#' @export
 generate_neo4j_local_load_script = function(
   neo4j_dir = "Neo4J/",
   output_file = file.path(neo4j_dir, "load_scSignalMap_local.cypher")
@@ -627,17 +627,17 @@ generate_neo4j_local_load_script = function(
 }
 
 
-##' Generate Neo4j LOAD CSV script for cloud instances (Sandbox/Aura) using HTTPS URLs
-##'
-##' This version is for Neo4j cloud deployments (Sandbox, AuraDB) where local file:/// paths are not supported.
-##' Instead, provide direct public HTTPS URLs to your CSV files hosted on Google Drive (or GitHub, Dropbox, etc.).
-##'
-##' @param file_urls A named vector where names are the original filenames (as expected by the script)
-##'                  and values are the direct HTTPS URLs (e.g., Google Drive download links).
-##'                  Example: c("my_senders_ligands.csv" = "https://drive.google.com/uc?id=abc123&export=download", ...)
-##' @param output_file Path to save the generated .cypher script (default: "Neo4J/load_scSignalMap_cloud.cypher")
-##' @return Invisibly returns the path to the generated script
-##' @export
+#' Generate Neo4j LOAD CSV script for cloud instances (Sandbox/Aura) using HTTPS URLs
+#'
+#' This version is for Neo4j cloud deployments (Sandbox, AuraDB) where local file:/// paths are not supported.
+#' Instead, provide direct public HTTPS URLs to your CSV files hosted on Google Drive (or GitHub, Dropbox, etc.).
+#'
+#' @param file_urls A named vector where names are the original filenames (as expected by the script)
+#'                  and values are the direct HTTPS URLs (e.g., Google Drive download links).
+#'                  Example: c("my_senders_ligands.csv" = "https://drive.google.com/uc?id=abc123&export=download", ...)
+#' @param output_file Path to save the generated .cypher script (default: "Neo4J/load_scSignalMap_cloud.cypher")
+#' @return Invisibly returns the path to the generated script
+#' @export
 generate_neo4j_cloud_load_script = function(
   file_urls,
   output_file = "Neo4J/load_scSignalMap_cloud.cypher"
@@ -741,7 +741,7 @@ generate_neo4j_cloud_load_script = function(
   invisible(output_file)
 }
                                       
-##' Run Full scSignalMap Pipeline 
+#' Run Full scSignalMap Pipeline 
 #'
 #' This function performs a full ligand–receptor signaling analysis  
 #' using scSignalMap and Seurat. It performs ligand–receptor interaction mapping, 
@@ -762,8 +762,6 @@ generate_neo4j_cloud_load_script = function(
 #' @param adj_p_val_cutoff: adjusted p-value cutoff for differential expression and pathway enrichment, default = 0.05
 #' @param enrichr_databases: databases that Enrichr will use for pathway idenification, default includes c("BioCarta_2016", "GO_Biological_Process_2025", "KEGG_2021_Human", "NCI-Nature_2016", "WikiPathways_2024_Human")
 #' @param adj_p_val_method: method for p-value adjustments, default = "BH" 
-
-
 #' @return a list containing ligand–receptor interactions, DE genes, upregulated receptors, filtered interactions, intersected receptors, and pathway enrichment results.
 #' @export
 run_full_scSignalMap_pipeline = function(
@@ -887,18 +885,18 @@ run_full_scSignalMap_pipeline = function(
   return(all_results)
 }
 
-##' Run Post-Processing & Neo4J Export
-##'
-##' Takes the output from run_scSignalMap_core() and saves all CSV files,
-##' exports core Neo4J tables, and generates load scripts.
-##'
-##' @param all_results List returned by run_full_scSignalMap_pipeline()
-##' @param neo4j_prefix Prefix for core Neo4J CSV filenames (default: "scSignalMap")
-##' @param upload_to_drive Logical; upload Neo4J CSVs to Google Drive and generate cloud script
-##' @param drive_folder_name Name of Google Drive folder (default: auto-generated with date)
-##' @param generate_local_script Logical; create local file:/// load script
-##' @param generate_cloud_script Logical; create HTTPS cloud load script (auto-enabled if upload_to_drive=TRUE)
-##' @export
+#' Run Post-Processing & Neo4J Export
+#'
+#' Takes the output from run_scSignalMap_core() and saves all CSV files,
+#' exports core Neo4J tables, and generates load scripts.
+#'
+#' @param all_results List returned by run_full_scSignalMap_pipeline()
+#' @param neo4j_prefix Prefix for core Neo4J CSV filenames (default: "scSignalMap")
+#' @param upload_to_drive Logical; upload Neo4J CSVs to Google Drive and generate cloud script
+#' @param drive_folder_name Name of Google Drive folder (default: auto-generated with date)
+#' @param generate_local_script Logical; create local file:/// load script
+#' @param generate_cloud_script Logical; create HTTPS cloud load script (auto-enabled if upload_to_drive=TRUE)
+#' @export
 run_post_processing_Neo4J = function(
     all_results,
     neo4j_prefix = "scSignalMap",
