@@ -9,7 +9,7 @@
 ##   Arizona State University                                   ##
 ##   242 ISTB1, 550 E Orange St                                 ##
 ##   Tempe, AZ  85281                                           ##
-## @github: https://github.com/plaisier-lab/scSignalMap         ##
+## @github: https://github.com/A-Zehnder/scSignalMap            ##
 ## @Author: Jillian Woodley, Samantha O'Connor, Chris Plaisier  ##
 ## @License:  GNU GPLv3                                         ##
 ##                                                              ##
