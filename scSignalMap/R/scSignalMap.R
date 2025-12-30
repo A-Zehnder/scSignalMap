@@ -1013,7 +1013,7 @@ run_post_processing_Neo4J = function(
   }
   
   message("Post-processing and Neo4J export complete.")
-  invisible(NULL)
+  invisible(all_results)
 }                                      
 ##' Create Master Interaction List
 #'
