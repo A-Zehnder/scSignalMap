@@ -1,128 +1,117 @@
-#' Run Post-Processing & Neo4J Export
-#'
-#' Takes the output from run_scSignalMap_core() and saves all CSV files,
-#' exports core Neo4J tables, and generates load scripts.
-#'
-#' @param all_results List returned by run_full_scSignalMap_pipeline()
-#' @param neo4j_prefix Prefix for core Neo4J CSV filenames (default: "scSignalMap")
-#' @param upload_to_drive Logical; upload Neo4J CSVs to Google Drive and generate cloud script
-#' @param drive_folder_name Name of Google Drive folder (default: auto-generated with date)
-#' @param generate_local_script Logical; create local file:/// load script
-#' @param generate_cloud_script Logical; create HTTPS cloud load script (auto-enabled if upload_to_drive=TRUE)
-#' @export
-run_post_processing_Neo4J = function(
-    all_results,
-    neo4j_prefix = "scSignalMap",
-    upload_to_drive = FALSE,
-    drive_folder_name = NULL,
-    generate_local_script = TRUE,
-    generate_cloud_script = NULL
-) {
-  if (is.null(generate_cloud_script)) {
-    generate_cloud_script = upload_to_drive
+\name{run_post_processing_Neo4J}
+\alias{run_post_processing_Neo4J}
+\title{Run Post-Processing and Neo4J Export}
+
+\description{
+  Performs all post-processing steps after the core scSignalMap analysis:
+  \itemize{
+    \item Saves detailed per-pair CSV files (DE genes, interactions, enrichment results)
+    \item Saves filtered pathway enrichment files for Neo4j import
+    \item Exports the three core relationship tables using \code{\link{export_for_neo4j}}
+    \item Generates a local Neo4j import script (optional)
+    \item Optionally uploads all Neo4j CSVs to Google Drive, makes them public,
+          and generates a cloud-compatible import script
   }
-  
-  # Ensure directories exist
-  dir.create("enrichr_results", showWarnings = FALSE, recursive = TRUE)
-  dir.create("Neo4J", showWarnings = FALSE, recursive = TRUE)
-  
-  # Grab the global LR_interactions (same for all pairs)
-  LR_interactions = all_results[[1]]$LR_interactions
-  
-  message("Saving per-pair CSV files and filtered enrichr results...")
-  
-  for (pair_name in names(all_results)) {
-    res = all_results[[pair_name]]
-    sender_clean   = res$sender_clean
-    receiver_clean = res$receiver_clean
-    
-    dir_pair = file.path("enrichr_results", paste0(sender_clean, "_", receiver_clean))
-    dir.create(dir_pair, showWarnings = FALSE, recursive = TRUE)
-    
-    # Save individual results
-    write.csv(res$LR_interactions, file.path(dir_pair, paste0(sender_clean, "_", receiver_clean, "_LR_interactions2.csv")), row.names = FALSE)
-    write.csv(res$de_cond_celltype, file.path(dir_pair, paste0(sender_clean, "_", receiver_clean, "_de_cond_celltype2.csv")), row.names = FALSE)
-    write.csv(res$upreg_receptors, file.path(dir_pair, paste0(sender_clean, "_", receiver_clean, "_upreg_receptors2.csv")), row.names = FALSE)
-    write.csv(res$interactions_filtered, file.path(dir_pair, paste0(sender_clean, "_", receiver_clean, "_interactions_filtered2.csv")), row.names = FALSE)
-    write.csv(res$upreg_receptors_filtered_and_compared, file.path(dir_pair, paste0(sender_clean, "_", receiver_clean, "_upreg_receptors_filtered_and_compared2.csv")), row.names = FALSE)
-    write.csv(res$enrichr_results, file.path(dir_pair, paste0(sender_clean, "_", receiver_clean, "_enrichr_results2.csv")), row.names = FALSE)
-    
-    # Save filtered enrichr for Neo4J (only if non-empty)
-    if (!is.null(res$enrichr_filtered) && nrow(res$enrichr_filtered) > 0) {
-      neo4j_file = file.path("Neo4J",
-                             paste0(sender_clean, "_", receiver_clean, "_enrichr_results_DATABASE2.csv"))
-      write.csv(res$enrichr_filtered, neo4j_file, row.names = FALSE)
-      message("Saved ", nrow(res$enrichr_filtered),
-              " signaling-relevant pathways for ", pair_name)
-    } else {
-      message("No signaling-relevant pathways for ", pair_name, " (skipped)")
-    }
+}
+
+\usage{
+run_post_processing_Neo4J(
+  all_results,
+  neo4j_prefix = "scSignalMap",
+  upload_to_drive = FALSE,
+  drive_folder_name = NULL,
+  generate_local_script = TRUE,
+  generate_cloud_script = NULL
+)
+}
+
+\arguments{
+  \item{all_results}{
+    Named list returned by \code{\link{run_full_scSignalMap_pipeline}} (or \code{run_scSignalMap_core}).
+    Each element corresponds to a sender-receiver pair and contains all intermediate results.
   }
-  
-  # Export the three core Neo4J tables (from full LR_interactions)
-  export_for_neo4j(
-    interactions = LR_interactions,
-    output_dir = "Neo4J/",
-    prefix = neo4j_prefix
-  )
-  
-  # Generate scripts
-  if (generate_local_script) {
-    generate_neo4j_local_load_script(
-      neo4j_dir = "Neo4J/",
-      output_file = "Neo4J/load_scSignalMap_local.cypher"
-    )
+  \item{neo4j_prefix}{
+    Character string used as prefix for the three core Neo4j CSV filenames
+    (senders_ligands, ligands_receptor_pairs, receptors_receivers).
+    Default: \code{"scSignalMap"}.
   }
-  
-  if (upload_to_drive) {
-    if (!requireNamespace("googledrive", quietly = TRUE)) {
-      stop("Package 'googledrive' needed for upload_to_drive = TRUE.")
-    }
-    library(googledrive)
-    
-    message("\n=== Uploading Neo4J files to Google Drive ===")
-    drive_auth()
-    
-    if (is.null(drive_folder_name)) {
-      drive_folder_name = paste0("scSignalMap_Neo4j_", format(Sys.Date(), "%Y%m%d"))
-    }
-    
-    drive_folder = try(drive_get(drive_folder_name), silent = TRUE)
-    if (inherits(drive_folder, "try-error") || nrow(drive_folder) == 0) {
-      drive_folder = drive_mkdir(drive_folder_name)
-      message("Created folder: ", drive_folder_name)
-    } else {
-      drive_folder = drive_folder[1, ]
-    }
-    
-    local_files = list.files("Neo4J/", pattern = "\\.csv$", full.names = TRUE)
-    if (length(local_files) == 0) {
-      warning("No CSV files in Neo4J/ to upload.")
-    } else {
-      message("Uploading ", length(local_files), " files...")
-      uploaded = lapply(local_files, function(f) drive_upload(media = f, path = drive_folder, overwrite = TRUE))
-      uploaded = do.call(rbind, uploaded)
-      
-      drive_share(uploaded, role = "reader", type = "anyone")
-      
-      file_urls = setNames(
-        paste0("https://drive.google.com/uc?id=", uploaded$id, "&export=download"),
-        uploaded$name
-      )
-      
-      message("Direct download URLs:")
-      print(file_urls)
-      
-      if (generate_cloud_script) {
-        generate_neo4j_cloud_load_script(
-          file_urls = file_urls,
-          output_file = "Neo4J/load_scSignalMap_cloud.cypher"
-        )
-        message("Cloud load script generated: Neo4J/load_scSignalMap_cloud.cypher")
-      }
-    }
+  \item{upload_to_drive}{
+    Logical; if \code{TRUE}, uploads all CSV files in the \code{Neo4J/} directory
+    to Google Drive, sets them to "Anyone with the link" sharing, and prints direct download URLs.
+    Requires the \code{googledrive} package and authentication.
+    Default: \code{FALSE}.
   }
-  
-  message("Post-processing and Neo4J export complete.")
-  invisible(all_results)
-}                   
+  \item{drive_folder_name}{
+    Name of the Google Drive folder to create or use. If \code{NULL} (default),
+    a folder named \code{"scSignalMap_Neo4j_YYYYMMDD"} is created.
+  }
+  \item{generate_local_script}{
+    Logical; if \code{TRUE}, generates a local \code{file:///}-based Cypher script
+    (\code{load_scSignalMap_local.cypher}). Default: \code{TRUE}.
+  }
+  \item{generate_cloud_script}{
+    Logical; if \code{TRUE}, generates an HTTPS-based Cypher script for cloud instances
+    (\code{load_scSignalMap_cloud.cypher}). Automatically set to \code{TRUE} when
+    \code{upload_to_drive = TRUE}. Default: \code{NULL} (inherits from \code{upload_to_drive}).
+  }
+}
+
+\details{
+  This function is the final step in the scSignalMap → Neo4j workflow. It organizes and saves
+  all intermediate results for inspection and prepares the data for import into Neo4j.
+
+  Files are saved in two directories:
+  \itemize{
+    \item \code{enrichr_results/<Sender>_<Receiver>/} – per-pair detailed CSVs
+    \item \code{Neo4J/} – core relationship tables + filtered pathway files
+  }
+}
+
+\value{
+  Invisibly returns the input \code{all_results} list (for piping if desired).
+}
+
+\examples{
+\donttest{
+# After running the core analysis
+results <- run_full_scSignalMap_pipeline(
+  seurat_obj = my_seurat,
+  celltype_column = "celltype",
+  sender_celltypes = c("Macrophages"),
+  receiver_celltypes = c("Tumor"),
+  cond_column = "condition",
+  cond_name1 = "Treatment",
+  cond_name2 = "Control"
+)
+
+# Basic export (local only)
+run_post_processing_Neo4J(
+  all_results = results,
+  neo4j_prefix = "my_analysis_20251230",
+  generate_local_script = TRUE
+)
+
+# Full export with Google Drive upload
+run_post_processing_Neo4J(
+  all_results = results,
+  neo4j_prefix = "my_analysis_20251230",
+  upload_to_drive = TRUE,
+  drive_folder_name = "MyProject_Neo4j_Results"
+)
+}
+}
+
+\seealso{
+  \code{\link{run_full_scSignalMap_pipeline}},
+  \code{\link{export_for_neo4j}},
+  \code{\link{generate_neo4j_local_load_script}},
+  \code{\link{generate_neo4j_cloud_load_script}}
+}
+
+\author{
+  Andrew Zehnder
+}
+
+\keyword{Neo4j}
+\keyword{export}
+\keyword{post-processing}
