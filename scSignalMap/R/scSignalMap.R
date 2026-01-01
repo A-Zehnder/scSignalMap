@@ -948,6 +948,7 @@ run_full_scSignalMap_pipeline = function(
 run_post_processing_Neo4J = function(
     all_results,
     neo4j_prefix = "scSignalMap",
+    dataset_name = "default",
     upload_to_drive = FALSE,
     drive_folder_name = NULL,
     generate_local_script = TRUE,
@@ -1005,6 +1006,7 @@ run_post_processing_Neo4J = function(
   if (generate_local_script) {
     generate_neo4j_local_load_script(
       neo4j_dir = "Neo4J/",
+      dataset_name,
       output_file = "Neo4J/load_scSignalMap_local.cypher"
     )
   }
@@ -1051,6 +1053,7 @@ run_post_processing_Neo4J = function(
       if (generate_cloud_script) {
         generate_neo4j_cloud_load_script(
           file_urls = file_urls,
+          dataset_name,
           output_file = "Neo4J/load_scSignalMap_cloud.cypher"
         )
         message("Cloud load script generated: Neo4J/load_scSignalMap_cloud.cypher")
