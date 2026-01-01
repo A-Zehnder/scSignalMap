@@ -698,7 +698,7 @@ generate_neo4j_cloud_load_script = function(
     "// Uses direct HTTPS URLs (e.g., Google Drive direct download links)",
     "// Run this directly in Neo4j Browser on your Sandbox/Aura instance",
     "// ================================================\n",
-    ":param dataset_name => $dataset_name;\n",
+    paste0(":param dataset_name => '", dataset_name, "';\n"),
     "// Indexes",
     "CREATE INDEX IF NOT EXISTS FOR (s:Sender) ON (s.name);",
     "CREATE INDEX IF NOT EXISTS FOR (l:Ligand_Symbol) ON (l.name);",
