@@ -635,11 +635,14 @@ generate_neo4j_local_load_script = function(
 #' @param file_urls A named vector where names are the original filenames (as expected by the script)
 #'                  and values are the direct HTTPS URLs (e.g., Google Drive download links).
 #'                  Example: c("my_senders_ligands.csv" = "https://drive.google.com/uc?id=abc123&export=download", ...)
+#' @param dataset_name A string identifying this dataset (e.g., "Control", "Treatment_A").
+#'        Will be added as a 'dataset' property on all nodes.
 #' @param output_file Path to save the generated .cypher script (default: "Neo4J/load_scSignalMap_cloud.cypher")
 #' @return Invisibly returns the path to the generated script
 #' @export
 generate_neo4j_cloud_load_script = function(
   file_urls,
+  dataset_name = "Default",
   output_file = "Neo4J/load_scSignalMap_cloud.cypher"
 ) {
   # Validate that required core files are provided
@@ -662,45 +665,59 @@ generate_neo4j_cloud_load_script = function(
   cypher = c(
     "// ================================================",
     "// Auto-generated Neo4j import script for scSignalMap (CLOUD VERSION)",
+    paste0("// Dataset: ", dataset_name),
     "// Generated on: ", Sys.Date(),
     "// Uses direct HTTPS URLs (e.g., Google Drive direct download links)",
     "// Run this directly in Neo4j Browser on your Sandbox/Aura instance",
     "// ================================================\n",
+    ":param dataset_name => $dataset_name;\n",
     "// Indexes",
     "CREATE INDEX IF NOT EXISTS FOR (s:Sender) ON (s.name);",
     "CREATE INDEX IF NOT EXISTS FOR (l:Ligand_Symbol) ON (l.name);",
     "CREATE INDEX IF NOT EXISTS FOR (p:Receptor_Symbol) ON (p.name);",
     "CREATE INDEX IF NOT EXISTS FOR (c:Receiver) ON (c.name);",
     "CREATE INDEX IF NOT EXISTS FOR (z:Signal_Pathway_Info) ON (z.name);\n",
+    
     "// 1. Sender to Ligand_Symbol",
     paste0('LOAD CSV WITH HEADERS FROM "', sender_url, '" AS row'),
     "MERGE (s:Sender {name: row.Sender})",
+    " ON CREATE SET s.dataset = $dataset_name",
+    " SET s.dataset = coalesce(s.dataset, $dataset_name)",
     "MERGE (l:Ligand_Symbol {name: row.Ligand_Symbol})",
     " ON CREATE SET l += {",
     " counts: toInteger(coalesce(row.Ligand_Counts, 0)),",
     " l_exp_lvl_3: toFloat(coalesce(row.Ligand_gte_3, 0.0)),",
     " l_exp_lvl_10: toFloat(coalesce(row.Ligand_gte_10, 0.0)),",
     " Ligand_secreted: toBoolean(coalesce(row.Ligand_secreted, false))",
+    " dataset: $dataset_name",
     " }",
+    " SET l.dataset = coalesce(l.dataset, $dataset_name)",
     "MERGE (s)-[r:sender2ligand]->(l)",
     " ON CREATE SET r.Ligand_Avg_Exp = toFloat(coalesce(row.Ligand_Avg_Exp, 0.0));\n",
+    
     "// 2. Ligand_Symbol to Receptor_Symbol",
     paste0('LOAD CSV WITH HEADERS FROM "', lr_url, '" AS row'),
     "MERGE (l:Ligand_Symbol {name: row.Ligand_Symbol})",
+    " SET l.dataset = coalesce(l.dataset, $dataset_name)",
     "MERGE (p:Receptor_Symbol {name: row.Receptor_Symbol})",
     " ON CREATE SET p += {",
-    " counts: toInteger(coalesce(row.Receptor_Counts, 0)),",
-    " r_exp_lvl_3: toFloat(coalesce(row.Receptor_gte_3, 0.0)),",
-    " r_exp_lvl_10: toFloat(coalesce(row.Receptor_gte_10, 0.0))",
+    "  counts: toInteger(coalesce(row.Receptor_Counts, 0)),",
+    "  r_exp_lvl_3: toFloat(coalesce(row.Receptor_gte_3, 0.0)),",
+    "  r_exp_lvl_10: toFloat(coalesce(row.Receptor_gte_10, 0.0))",
+    "  dataset: $dataset_name",
     " }",
+    " SET p.dataset = coalesce(p.dataset, $dataset_name)",
     "MERGE (l)-[:ligand2receptorsymbol]->(p);\n",
+    
     "// 3. Receptor_Symbol to Receiver",
     paste0('LOAD CSV WITH HEADERS FROM "', receiver_url, '" AS row'),
     "MERGE (p:Receptor_Symbol {name: row.Receptor_Symbol})",
-    " ON CREATE SET p.Receptor_Cluster_Marker = toBoolean(coalesce(row.Receptor_Cluster_Marker, false))",
+    "  ON CREATE SET p.Receptor_Cluster_Marker = toBoolean(coalesce(row.Receptor_Cluster_Marker, false))",
+    "  SET p.dataset = coalesce(p.dataset, $dataset_name)",
     "MERGE (c:Receiver {name: row.Receiver})",
+    "  SET c.dataset = coalesce(c.dataset, $dataset_name)",
     "MERGE (p)-[r:receptor2receivecluster]->(c)",
-    " ON CREATE SET r.Receptor_Avg_Exp = toFloat(coalesce(row.Receptor_Avg_Exp, 0.0));"
+    "  ON CREATE SET r.Receptor_Avg_Exp = toFloat(coalesce(row.Receptor_Avg_Exp, 0.0));\n"
   )
   
   if (length(pathway_urls) > 0) {
@@ -714,7 +731,7 @@ generate_neo4j_cloud_load_script = function(
       unwinds = c(unwinds, paste0(' {url: "', url, '", receiver: "', receiver, '"}'))
     }
     cypher = c(cypher,
-      "\n// 4. Receiver to Signal_Pathway_Info (filtered pathways)",
+      "// 4. Receiver to Signal_Pathway_Info (filtered pathways)",
       "UNWIND [",
       paste(unwinds, collapse = ",\n"),
       "] AS item",
@@ -722,15 +739,18 @@ generate_neo4j_cloud_load_script = function(
       "WITH item.receiver AS recvName, row",
       "WHERE row.Term IS NOT NULL",
       "MERGE (c:Receiver {name: recvName})",
+      "  SET c.dataset = coalesce(c.dataset, $dataset_name)",
       "MERGE (z:Signal_Pathway_Info {name: row.Term})",
-      " ON CREATE SET z += {",
-      " Database: coalesce(row.database, 'Unknown'),",
-      " Pathway_Adjusted_P_Value: toFloat(coalesce(row.Adjusted_P_value, 999)),",
-      " Combined_Score: toFloat(coalesce(row.Combined_Score, 0.0)),",
-      " Matching_Receptors: split(coalesce(row.Matching_Receptors, ''), ';')",
-      " }",
+      "  ON CREATE SET z += {",
+      "    Database: coalesce(row.database, 'Unknown'),",
+      "    Pathway_Adjusted_P_Value: toFloat(coalesce(row.Adjusted_P_value, 999)),",
+      "    Combined_Score: toFloat(coalesce(row.Combined_Score, 0.0)),",
+      "    Matching_Receptors: split(coalesce(row.Matching_Receptors, ''), ';'),",
+      "    dataset: $dataset_name",
+      "  }",
+      "  SET z.dataset = coalesce(z.dataset, $dataset_name)",
       "MERGE (c)-[r:receiver2signalpathway]->(z)",
-      " ON CREATE SET r.Addl_Linked_Genes = split(coalesce(row.Genes, ''), ';');"
+      "  ON CREATE SET r.Addl_Linked_Genes = split(coalesce(row.Genes, ''), ';');"
     )
   }
   
