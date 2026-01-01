@@ -523,80 +523,102 @@ export_for_neo4j = function(
 #' and generates a complete Cypher script using file:/// paths.
 #'
 #' @param neo4j_dir Directory with all CSV files (default: "Neo4J/")
+#' @param dataset_name A string identifying this dataset (e.g., "Control", "Treatment_A").
+#'        Required — will be added as a 'dataset' property on every node.
 #' @param output_file Where to save the .cypher script (default: "Neo4J/load_scSignalMap.cypher")
 #' @return Invisibly returns path to generated script
 #' @export
 generate_neo4j_local_load_script = function(
   neo4j_dir = "Neo4J/",
+  dataset_name,
   output_file = file.path(neo4j_dir, "load_scSignalMap_local.cypher")
 ) {
-  # List all CSV files
-  all_files = list.files(neo4j_dir, pattern = "\\.csv$", full.names = FALSE)
-
-  # Identify core files
-  sender_file = all_files[grep("_senders_ligands\\.csv$", all_files)]
-  lr_file     = all_files[grep("_ligands_receptor_pairs\\.csv$", all_files)]
-  receiver_file = all_files[grep("_receptors_receivers\\.csv$", all_files)]
-  pathway_files = all_files[grep("_enrichr_results_DATABASE2\\.csv$", all_files)]
-
-  if (length(sender_file) == 0 || length(lr_file) == 0 || length(receiver_file) == 0) {
-    stop("Missing one or more core files. Found:\n", paste(all_files, collapse = "\n"))
+  if (missing(dataset_name) || is.null(dataset_name) || dataset_name == "") {
+    stop("dataset_name must be provided and non-empty.")
   }
 
-  cypher = c(
+  # Ensure directory ends with /
+  neo4j_dir <- gsub("/+$", "/", neo4j_dir)
+
+  # List all CSV files (relative names only)
+  all_files <- list.files(neo4j_dir, pattern = "\\.csv$", full.names = FALSE)
+
+  # Identify core files
+  sender_file   <- all_files[grep("_senders_ligands\\.csv$", all_files)]
+  lr_file       <- all_files[grep("_ligands_receptor_pairs\\.csv$", all_files)]
+  receiver_file <- all_files[grep("_receptors_receivers\\.csv$", all_files)]
+  pathway_files <- all_files[grep("_enrichr_results_DATABASE2\\.csv$", all_files)]
+
+  if (length(sender_file) == 0 || length(lr_file) == 0 || length(receiver_file) == 0) {
+    stop("Missing one or more core files in ", neo4j_dir, ". Found:\n", paste(all_files, collapse = "\n"))
+  }
+
+  cypher <- c(
     "// ================================================",
-    "// Auto-generated Neo4j import script for scSignalMap",
+    "// Auto-generated Neo4j import script for scSignalMap (LOCAL VERSION)",
+    paste0("// Dataset: ", dataset_name),
     "// Generated on: ", Sys.Date(),
     "// All files are in one folder - copy everything to Neo4j import/",
     "// ================================================\n",
+    paste0(":param dataset_name => '", dataset_name, "';\n"),
     "// Indexes",
     "CREATE INDEX IF NOT EXISTS FOR (s:Sender) ON (s.name);",
     "CREATE INDEX IF NOT EXISTS FOR (l:Ligand_Symbol) ON (l.name);",
     "CREATE INDEX IF NOT EXISTS FOR (p:Receptor_Symbol) ON (p.name);",
     "CREATE INDEX IF NOT EXISTS FOR (c:Receiver) ON (c.name);",
     "CREATE INDEX IF NOT EXISTS FOR (z:Signal_Pathway_Info) ON (z.name);\n",
+
     "// 1. Sender → Ligand_Symbol",
     paste0('LOAD CSV WITH HEADERS FROM "file:///', sender_file, '" AS row'),
     "MERGE (s:Sender {name: row.Sender})",
+    "  SET s.dataset = coalesce(s.dataset, $dataset_name)",
     "MERGE (l:Ligand_Symbol {name: row.Ligand_Symbol})",
     "  ON CREATE SET l += {",
     "    counts: toInteger(coalesce(row.Ligand_Counts, 0)),",
     "    l_exp_lvl_3: toFloat(coalesce(row.Ligand_gte_3, 0.0)),",
     "    l_exp_lvl_10: toFloat(coalesce(row.Ligand_gte_10, 0.0)),",
-    "    Ligand_secreted: toBoolean(coalesce(row.Ligand_secreted, false))",
+    "    Ligand_secreted: toBoolean(coalesce(row.Ligand_secreted, false)),",
+    "    dataset: $dataset_name",
     "  }",
+    "  SET l.dataset = coalesce(l.dataset, $dataset_name)",
     "MERGE (s)-[r:sender2ligand]->(l)",
     "  ON CREATE SET r.Ligand_Avg_Exp = toFloat(coalesce(row.Ligand_Avg_Exp, 0.0));\n",
-    "// 2. Ligand_Symbol to Receptor_Symbol",
+
+    "// 2. Ligand_Symbol → Receptor_Symbol",
     paste0('LOAD CSV WITH HEADERS FROM "file:///', lr_file, '" AS row'),
     "MERGE (l:Ligand_Symbol {name: row.Ligand_Symbol})",
+    "  SET l.dataset = coalesce(l.dataset, $dataset_name)",
     "MERGE (p:Receptor_Symbol {name: row.Receptor_Symbol})",
     "  ON CREATE SET p += {",
     "    counts: toInteger(coalesce(row.Receptor_Counts, 0)),",
     "    r_exp_lvl_3: toFloat(coalesce(row.Receptor_gte_3, 0.0)),",
-    "    r_exp_lvl_10: toFloat(coalesce(row.Receptor_gte_10, 0.0))",
+    "    r_exp_lvl_10: toFloat(coalesce(row.Receptor_gte_10, 0.0)),",
+    "    dataset: $dataset_name",
     "  }",
+    "  SET p.dataset = coalesce(p.dataset, $dataset_name)",
     "MERGE (l)-[:ligand2receptorsymbol]->(p);\n",
-    "// 3. Receptor_Symbol to Receiver",
+
+    "// 3. Receptor_Symbol → Receiver",
     paste0('LOAD CSV WITH HEADERS FROM "file:///', receiver_file, '" AS row'),
     "MERGE (p:Receptor_Symbol {name: row.Receptor_Symbol})",
     "  ON CREATE SET p.Receptor_Cluster_Marker = toBoolean(coalesce(row.Receptor_Cluster_Marker, false))",
+    "  SET p.dataset = coalesce(p.dataset, $dataset_name)",
     "MERGE (c:Receiver {name: row.Receiver})",
+    "  SET c.dataset = coalesce(c.dataset, $dataset_name)",
     "MERGE (p)-[r:receptor2receivecluster]->(c)",
-    "  ON CREATE SET r.Receptor_Avg_Exp = toFloat(coalesce(row.Receptor_Avg_Exp, 0.0));"
+    "  ON CREATE SET r.Receptor_Avg_Exp = toFloat(coalesce(row.Receptor_Avg_Exp, 0.0));\n"
   )
 
   if (length(pathway_files) > 0) {
-    unwinds = character()
+    unwinds <- character()
     for (f in pathway_files) {
-      # Extract receiver from filename: "Sender_Receiver_enrichr_results_DATABASE2.csv" → Receiver
-      receiver = sub(".*_", "", sub("_enrichr_results_DATABASE2\\.csv$", "", f))
-      receiver = gsub("[.////]", "", receiver)
-      unwinds = c(unwinds, paste0('  {file: "', f, '", receiver: "', receiver, '"}'))
+      receiver <- sub(".*_", "", sub("_enrichr_results_DATABASE2\\.csv$", "", f))
+      receiver <- gsub("[.////]", "", receiver)
+      unwinds <- c(unwinds, paste0(' {file: "', f, '", receiver: "', receiver, '"}'))
     }
 
-    cypher = c(cypher,
-      "\n// 4. Receiver to Signal_Pathway_Info (filtered pathways with linked receptors)",
+    cypher <- c(cypher,
+      "// 4. Receiver → Signal_Pathway_Info (filtered pathways)",
       "UNWIND [",
       paste(unwinds, collapse = ",\n"),
       "] AS item",
@@ -604,13 +626,16 @@ generate_neo4j_local_load_script = function(
       "WITH item.receiver AS recvName, row",
       "WHERE row.Term IS NOT NULL",
       "MERGE (c:Receiver {name: recvName})",
+      "  SET c.dataset = coalesce(c.dataset, $dataset_name)",
       "MERGE (z:Signal_Pathway_Info {name: row.Term})",
       "  ON CREATE SET z += {",
       "    Database: coalesce(row.database, 'Unknown'),",
       "    Pathway_Adjusted_P_Value: toFloat(coalesce(row.Adjusted_P_value, 999)),",
       "    Combined_Score: toFloat(coalesce(row.Combined_Score, 0.0)),",
-      "    Matching_Receptors: split(coalesce(row.Matching_Receptors, ''), ';')",
+      "    Matching_Receptors: split(coalesce(row.Matching_Receptors, ''), ';'),",
+      "    dataset: $dataset_name",
       "  }",
+      "  SET z.dataset = coalesce(z.dataset, $dataset_name)",
       "MERGE (c)-[r:receiver2signalpathway]->(z)",
       "  ON CREATE SET r.Addl_Linked_Genes = split(coalesce(row.Genes, ''), ';');"
     )
@@ -619,9 +644,12 @@ generate_neo4j_local_load_script = function(
   # Save script
   dir.create(dirname(output_file), showWarnings = FALSE, recursive = TRUE)
   writeLines(cypher, output_file)
-  message("Neo4j load script generated: ", output_file)
-  message("   1. Copy all files from 'Neo4J/' into your Neo4j import/ directory")
-  message("   2. Run the script in Neo4j Browser")
+
+  message("Local Neo4j load script generated: ", output_file)
+  message("Dataset tag: ", dataset_name)
+  message("Next steps:")
+  message("  1. Copy all CSV files from '", neo4j_dir, "' into your Neo4j 'import/' directory")
+  message("  2. Run the generated script in Neo4j Browser")
 
   invisible(output_file)
 }
